@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Lights Out</title>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=Bebas+Neue&family=Lilita+One&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+    }
+    body {
+      background: #06111e;
+      touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Fixed design canvas: 1920 × 1080 (Figma native) ──
+       Positioned top-left and centered via translate+scale in JS,
+       so it fits any display size without flexbox-overflow miscentering. */
+    #canvas {
+      width: 1920px; height: 1080px;
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: top left;
+      background: #06111e url('assets/background.webp') center / cover no-repeat;
+      overflow: hidden;
+    }
+
+    /* ── Animations ──────────────────────────────── */
+    @keyframes fadeIn   { from { opacity:0; transform:translateY(6px); }  to { opacity:1; transform:translateY(0); } }
+    @keyframes popIn    { from { opacity:0; transform:scale(0.45); }       to { opacity:1; transform:scale(1); } }
+    @keyframes shake    { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
+    @keyframes hintGlow  { 0%,100%{filter:brightness(1)   drop-shadow(0 0 6px rgba(0,229,255,.5));} 50%{filter:brightness(1.15) drop-shadow(0 0 18px rgba(0,229,255,1));} }
+    @keyframes pulse    { 0%,100%{filter:brightness(1);}  50%{filter:brightness(1.28) drop-shadow(0 0 18px #4afa7c);} }
+    @keyframes float    { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+
+    /* ════════════════════════════════════════════
+       QUESTION SCREEN — Figma layout (node 956:7170)
+    ════════════════════════════════════════════ */
+
+    /* Robot (top-left) */
+    #qrobot {
+      position: absolute;
+      left: 55px; top: -16px;
+      width: 196px; height: 257px;
+      overflow: hidden;
+      z-index: 5;
+    }
+    /* Byte dancing in the top-left (tutorial completion) */
+    #byte-dance {
+      position: absolute;
+      left: 20px; top: -14px;
+      width: 235px; height: auto;
+      z-index: 6;
+      display: none;
+      transform-origin: center bottom;
+      filter: drop-shadow(0 0 18px rgba(0,220,255,.45));
+    }
+    #byte-dance.show { display: block; }   /* the GIF animates itself */
+    #qrobot img {
+      position: absolute;
+      left: -61.46%; top: -0.09%;
+      width: 232.81%; height: 100.17%;
+      max-width: none;
+    }
+
+    /* Bot text bar (the long top frame) */
+    #bot-bar {
+      position: absolute;
+      left: 161px; top: 32px;
+      width: 1499px; height: 150.654px;
+      z-index: 4;
+    }
+    #bot-bar .frame {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    #bot-text {
+      position: absolute;
+      left: 116px; right: 40px;
+      top: 48%; transform: translateY(-50%);
+      font-family: 'Exo 2', sans-serif;
+      font-size: 34px; font-weight: 700;
+      color: #dff4f8;
+      text-shadow: 0 0 10px rgba(0,200,230,.5);
+      white-space: nowrap;
+      text-align: left;
+    }
+
+    /* Power button (top-right) */
+    #power-btn {
+      position: absolute;
+      left: 1695px; top: 32px;
+      width: 183px; height: 178px;
+      object-fit: contain;
+      z-index: 2;
+    }
+    #power-btn.pulsing { animation: pulse 1.2s ease-in-out infinite; }
+
+    /* Glowing pipe connectors (behind panels) */
+    .connector { position: absolute; z-index: 1; pointer-events: none; }
+    .cclip { position: absolute; inset: 0; overflow: hidden; }
+    .cclip img { position: absolute; max-width: none; transition: filter 0.25s ease; }
+
+    /* flowing current — a green copy of the pipe, revealed as a sharp bright bolt of light
+       that zips along the tube (a lightning pass, confined to the exact pipe shape) */
+    .cclip .flow {
+      position: absolute;
+      max-width: none;
+      opacity: 0;
+      pointer-events: none;
+      filter: brightness(2.7) saturate(2.1) hue-rotate(-88deg);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 36%, #000 47%, #000 53%, transparent 64%, transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0%, transparent 36%, #000 47%, #000 53%, transparent 64%, transparent 100%);
+      -webkit-mask-size: 60% 100%; mask-size: 60% 100%;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    }
+    @keyframes currentFlow {
+      from { -webkit-mask-position: -60% 0; mask-position: -60% 0; }
+      to   { -webkit-mask-position: 165% 0; mask-position: 165% 0; }
+    }
+    #screen-question.current-on .connector:not(.cn-small) .flow {
+      opacity: 1;
+      animation: currentFlow 1.15s linear 0.4s infinite both;   /* slower so the surge is clearly noticeable */
+    }
+    #screen-question.current-on .cclip img:not(.flow) { filter: brightness(1.15); }
+
+    /* Main panel */
+    #main-panel {
+      position: absolute;
+      left: 72px; top: 215px;
+      width: 1573.948px; height: 453px;
+      z-index: 3;
+    }
+
+    /* Entrance: the box appears as a bright line, then opens vertically */
+    #main-panel.opening {
+      animation: panelOpen 1.9s cubic-bezier(0.22, 1.04, 0.36, 1) 1.0s both;
+    }
+    @keyframes panelOpen {
+      0%   { opacity: 0; transform: scale(0.42, 0.02);
+             filter: brightness(2.3) drop-shadow(0 0 46px rgba(15,229,250,1)); }
+      16%  { opacity: 1; transform: scale(1, 0.025);
+             filter: brightness(2.3) drop-shadow(0 0 46px rgba(15,229,250,1)); }
+      55%  { transform: scale(1, 1.05);
+             filter: brightness(1.35) drop-shadow(0 0 26px rgba(15,229,250,.6)); }
+      75%  { transform: scale(1, 0.985); }
+      100% { opacity: 1; transform: scale(1, 1); filter: none; }
+    }
+
+    /* ── Playful one-by-one entrance for the question screen ── */
+    @keyframes robotBounceIn {
+      0%   { opacity: 0; transform: translateY(-52px) scale(0.4); }
+      55%  { opacity: 1; transform: translateY(8px)  scale(1.12); }
+      78%  {             transform: translateY(-4px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+    @keyframes barExpandIn {
+      0%   { opacity: 0; transform: scaleX(0.12); }
+      60%  { opacity: 1; transform: scaleX(1.04); }
+      100% { opacity: 1; transform: scaleX(1); }
+    }
+    @keyframes popBounceIn {
+      0%   { opacity: 0; transform: scale(0.3)  translateY(16px); }
+      55%  { opacity: 1; transform: scale(1.15) translateY(-6px); }
+      78%  {             transform: scale(0.95) translateY(2px); }
+      100% { opacity: 1; transform: scale(1)    translateY(0); }
+    }
+    @keyframes connDrawIn {
+      0%   { opacity: 0; transform: scale(0.55); }
+      70%  { opacity: 1; transform: scale(1.04); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes switchDrop {
+      0%   { opacity: 0; transform: translateY(-46px) scale(0.7); }
+      60%  { opacity: 1; transform: translateY(6px)   scale(1.06); }
+      80%  {             transform: translateY(-2px)  scale(0.98); }
+      100% { opacity: 1; transform: translateY(0)     scale(1); }
+    }
+
+    #screen-question.intro #qrobot    { animation: robotBounceIn 0.85s cubic-bezier(0.34,1.56,0.64,1) 0.15s both; transform-origin: center bottom; }
+    /* bot bar appears LAST (after switches + options + vent), then types its text */
+    #bot-bar.bar-hidden { opacity: 0; pointer-events: none; }
+    #bot-bar.bar-reveal { animation: barExpandIn 0.6s cubic-bezier(0.34,1.4,0.64,1) both; transform-origin: left center; }
+    /* blue pipe + red power button appear together, AFTER the box has fully opened (~2.9s) */
+    #screen-question.intro #power-btn { animation: popBounceIn 0.78s cubic-bezier(0.34,1.56,0.64,1) 2.95s both; }
+    #screen-question.intro .connector:not(.opt-pipe) { animation: connDrawIn 0.65s cubic-bezier(0.34,1.4,0.64,1) 2.95s both; }
+    #panel-frame {
+      position: absolute;
+      left: -0.79%; top: 0;
+      width: 101.58%; height: 102.76%;
+      pointer-events: none;
+    }
+    /* Vent indicator bars — sit on top of the panel housing */
+    .vent-bars { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .vent-bar {
+      position: absolute;
+      border-radius: 4px;
+      background: #0ce4f9;
+      box-shadow: 0 0 3px rgba(12,228,249,.4), inset 0 0 3px rgba(255,255,255,.22);
+      transition: background .18s ease, box-shadow .18s ease;
+    }
+    #main-panel.vent-correct .vent-bar {
+      background: #2bff7a;
+      box-shadow: 0 0 13px rgba(43,255,122,.95), inset 0 0 4px rgba(255,255,255,.4);
+    }
+    #main-panel.vent-wrong .vent-bar {
+      background: #ff3b3b;
+      box-shadow: 0 0 13px rgba(255,59,59,.95), inset 0 0 4px rgba(255,255,255,.4);
+    }
+    #main-panel.row-complete .vent-bar { display: none; }
+
+    /* pattern complete: a bright green pulse flows through the vent bars (left → right, toward the pipe) */
+    @keyframes ventFlow {
+      from { background-position: -130% 0; }
+      to   { background-position: 230% 0; }
+    }
+    #screen-question.current-on .vent-bar {
+      background: linear-gradient(90deg, #1aa84a 0%, #5dff95 42%, #eaffef 50%, #5dff95 58%, #1aa84a 100%);
+      background-size: 260% 100%;
+      box-shadow: 0 0 13px rgba(60,255,140,.9), inset 0 0 4px rgba(255,255,255,.45);
+      animation: ventFlow 1.0s linear infinite;
+    }
+    #screen-question.current-on .vent-bar:nth-child(1) { animation-delay: 0s; }
+    #screen-question.current-on .vent-bar:nth-child(2) { animation-delay: 0.12s; }
+    #screen-question.current-on .vent-bar:nth-child(3) { animation-delay: 0.24s; }
+
+    /* Switch row */
+    #switch-row {
+      position: absolute;
+      left: 0; right: 0;
+      top: 156px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 23px;
+      z-index: 2;
+    }
+
+    /* ── Switch tile (slot) ── */
+    .sw {
+      width: 128px; height: 174px;
+      flex-shrink: 0;
+      border-radius: 11px;
+    }
+    .tile {
+      position: relative;
+      width: 100%; height: 100%;
+      background-image: url('assets/figma/tile.webp');
+      background-repeat: no-repeat;
+      background-size: 248.81% 138.26%;
+      background-position: 49.6% 57.92%;
+      border-radius: 8px;
+    }
+    .tile-num {
+      position: absolute;
+      left: 50%; top: 45%;
+      transform: translate(-50%, -50%);
+      font-family: 'Lilita One', cursive;
+      font-weight: 400;
+      font-size: 80px;
+      line-height: 1;
+      color: #000;
+    }
+
+    @keyframes correctGlow {
+      0%   { box-shadow: 0 0  0px  0px rgba(255,255,255,0); }
+      25%  { box-shadow: 0 0 22px 10px rgba(255,255,255,.95), 0 0 50px 20px rgba(255,255,255,.4); }
+      100% { box-shadow: 0 0  0px  0px rgba(255,255,255,0); }
+    }
+
+    .sw.filled .tile  { animation: fadeIn 0.3s ease both; }
+    .sw.new           { animation: correctGlow 0.95s ease-out both; }
+    .sw.new    .tile  { animation: popIn  0.55s ease both; }
+
+    /* "read the pattern" highlight — each prefilled switch pops + glows as its number is read */
+    @keyframes readPop {
+      0%   { transform: scale(1);    filter: drop-shadow(0 0 0 rgba(0,229,255,0)); }
+      40%  { transform: scale(1.16); filter: drop-shadow(0 0 16px rgba(0,229,255,.95)); }
+      100% { transform: scale(1);    filter: drop-shadow(0 0 0 rgba(0,229,255,0)); }
+    }
+    .sw.read-pop { animation: readPop 0.62s ease-out; position: relative; z-index: 4; }
+
+    /* Empty slots — cyan neon border (Figma #a3fffc) */
+    .sw.empty {
+      background: transparent;
+      border: 4px solid #a3fffc;
+      border-radius: 11px;
+    }
+    /* active "place here" slot — cyan glow per the Figma design (#69f4f9 layered) */
+    .sw.empty.next-slot {
+      border: 4px solid #a3fffc;
+      box-shadow:
+        0 0 3px #69f4f9,
+        0 0 6px #69f4f9,
+        0 0 21px #69f4f9,
+        0 0 42px rgba(105,244,249,0.85),
+        0 0 72px rgba(105,244,249,0.6),
+        0 0 125px rgba(105,244,249,0.45);
+    }
+
+    @keyframes wrongGlowPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(255,40,40,0);          outline-color: rgba(255,70,70,.35); }
+      16%  { box-shadow: 0 0 34px 12px rgba(255,45,45,.98), 0 0 68px 26px rgba(255,0,0,.55); outline-color: #ff5050; }
+      100% { box-shadow: 0 0 18px 4px rgba(255,45,45,.7);   outline-color: #ff3333; }
+    }
+    .sw.wrong { animation: shake 0.45s ease; }
+    .sw.wrong-option { animation: shake 0.45s ease; }
+    .sw.wrong .tile,
+    .sw.wrong-option .tile {
+      outline: 3px solid #ff3333;
+      border-radius: 8px;
+      animation: wrongGlowPulse 0.8s ease-out both;
+    }
+
+    /* sparks flung from a wrong switch */
+    .spark {
+      position: absolute;
+      left: 50%; top: 45%;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 40;
+      box-shadow: 0 0 10px 3px rgba(255,150,40,.95);
+    }
+    .spark-burst {
+      position: absolute;
+      left: 50%; top: 45%;
+      width: 110px; height: 110px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 39;
+      background: radial-gradient(circle, rgba(255,210,90,.95) 0%, rgba(255,120,30,.55) 38%, rgba(255,60,30,0) 70%);
+    }
+
+    /* All switches shake together on wrong answer */
+    #switch-row.shaking .sw { animation: shake 0.45s ease; }
+
+    /* Completed-row switch styling */
+    .sw.complete-fill .tile {
+      outline: 2px solid rgba(120, 235, 255, 0.8);
+      box-shadow: 0 0 12px rgba(0, 220, 255, .45);
+      border-radius: 8px;
+      animation: fadeIn 0.3s ease both;
+    }
+
+    /* Panel green-glow state for row-complete */
+    @keyframes greenBorderPulse {
+      0%,100% { box-shadow: 0 0 0 4px #4afa7c, 0 0 35px rgba(74,250,124,.55), 0 0 80px rgba(74,250,124,.22); }
+      50%     { box-shadow: 0 0 0 4px #4afa7c, 0 0 62px rgba(74,250,124,.88), 0 0 130px rgba(74,250,124,.42); }
+    }
+
+    #main-panel.row-complete {
+      left: 72px; top: 130px;
+      width: 1776px; height: 820px;
+      border-radius: 24px;
+      background: #041840;
+      z-index: 10;
+      animation: greenBorderPulse 1.2s ease-in-out infinite;
+      transition: top 0.35s ease, height 0.35s ease, width 0.35s ease, left 0.35s ease, background 0.3s ease;
+    }
+    #main-panel.row-complete #panel-frame { opacity: 0; }
+    #main-panel.row-complete #switch-row {
+      top: 50%;
+      transform: translateY(-50%);
+      transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+
+    /* Hide surrounding chrome during celebration */
+    #screen-question.celebrating #qrobot,
+    #screen-question.celebrating #power-btn,
+    #screen-question.celebrating #hint-btn,
+    #screen-question.celebrating #bot-bar,
+    #screen-question.celebrating .connector,
+    #screen-question.celebrating #options-box {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Hide switches when Well done appears */
+    #main-panel.well-done-active #switch-row {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    /* Well done overlay */
+    @keyframes wellDonePop {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(0.55); }
+      to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    @keyframes robotDance {
+      0%,100% { transform: translateY(0)    rotate(0deg);   }
+      15%     { transform: translateY(-18px) rotate(-8deg);  }
+      30%     { transform: translateY(0)    rotate(0deg);   }
+      45%     { transform: translateY(-14px) rotate(7deg);   }
+      60%     { transform: translateY(0)    rotate(0deg);   }
+      75%     { transform: translateY(-10px) rotate(-5deg);  }
+      90%     { transform: translateY(0)    rotate(0deg);   }
+    }
+
+    #well-done-msg {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: none;
+      z-index: 20;
+      white-space: nowrap;
+      animation: wellDonePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    #well-done-msg.hidden { display: none !important; }
+
+    #robot-dance {
+      width: 180px;
+      height: auto;
+      animation: robotDance 1s ease-in-out infinite;
+      filter: drop-shadow(0 0 18px rgba(0,220,255,.45));
+    }
+
+    #well-done-text {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 110px;
+      font-weight: 900;
+      color: #00e8ff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 40px rgba(0,232,255,.7), 0 0 80px rgba(0,200,255,.35), 0 4px 0 rgba(0,0,0,.45);
+    }
+
+    /* Wrong answer message */
+    #wrong-msg {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -58%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #wrong-msg.hidden { display: none !important; }
+
+    /* Options box (bottom) */
+    #options-box {
+      position: absolute;
+      left: 488.38px; top: 728px;
+      width: 742.047px; height: 256px;
+      z-index: 3;
+    }
+    #options-box .frame {
+      position: absolute;
+      left: -0.79%; top: 0;
+      width: 101.58%; height: 102.3%;
+      pointer-events: none;
+    }
+    #options-area {
+      position: absolute;
+      left: 0; right: 0;
+      top: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 38px;
+      z-index: 2;
+    }
+    #options-area.invisible { visibility: hidden; pointer-events: none; }
+
+    @keyframes optTilePop {
+      0%   { opacity: 0; transform: translateY(24px) scale(0.55); }
+      60%  { opacity: 1; transform: translateY(-5px) scale(1.12); }
+      80%  {             transform: translateY(2px)  scale(0.96); }
+      100% { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+    #options-area.hidden-initially {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* all 4 option switches pop in together AFTER the box has deployed */
+    #options-area.reveal .sw {
+      animation: optTilePop 0.95s cubic-bezier(0.34,1.5,0.5,1) both;
+    }
+
+    /* ── Deploy: options box emerges from the main panel ── */
+    /* 1. the two link pipes shoot down out of the panel bottom */
+    .opt-pipe { transform-origin: top center; }
+    .opt-pipe.hidden-initially { opacity: 0; transform: scaleY(0); }
+    .opt-pipe.extend { animation: pipeExtend 0.95s cubic-bezier(0.3, 1, 0.4, 1) both; }
+    @keyframes pipeExtend {
+      0%   { opacity: 0.25; transform: scaleY(0); }
+      70%  { opacity: 1;    transform: scaleY(1.06); }
+      100% { opacity: 1;    transform: scaleY(1); }
+    }
+
+    /* 2. the box unfolds downward out of the panel, riding the pipes */
+    #options-box { transform-origin: top center; }
+    #options-box.hidden-initially { opacity: 0; pointer-events: none; }
+    #options-box.deploy {
+      animation: optionsBoxDeploy 1.4s cubic-bezier(0.22, 1.15, 0.36, 1) both;
+    }
+    @keyframes optionsBoxDeploy {
+      0%   { opacity: 0; transform: translateY(-70px) scaleY(0.5);
+             filter: brightness(1.7) drop-shadow(0 0 30px rgba(15,229,250,.95)); }
+      55%  { opacity: 1; transform: translateY(14px) scaleY(1.06);
+             filter: brightness(1.25) drop-shadow(0 0 18px rgba(15,229,250,.6)); }
+      78%  { transform: translateY(-5px) scaleY(0.99); }
+      100% { opacity: 1; transform: translateY(0) scaleY(1); filter: none; }
+    }
+    /* on completion the option placeholder retracts back up into the panel/vent */
+    #options-box.retract { animation: optionsBoxRetract 0.55s cubic-bezier(0.5, 0, 0.75, 0.4) forwards; }
+    @keyframes optionsBoxRetract {
+      0%   { opacity: 1; transform: translateY(0) scaleY(1); }
+      100% { opacity: 0; transform: translateY(-80px) scaleY(0.32); }
+    }
+    .opt-pipe.retract { animation: pipeRetract 0.5s ease forwards; }
+    @keyframes pipeRetract {
+      from { opacity: 1; transform: scaleY(1); }
+      to   { opacity: 0; transform: scaleY(0); }
+    }
+
+    /* Option tiles — slightly smaller than the row tiles */
+    #options-area .sw { width: 112.208px; height: 152.533px; }
+    #options-area .tile-num { font-size: 70px; }
+
+    .sw.option {
+      cursor: pointer;
+      transition: transform 0.13s;
+    }
+    .sw.option:hover { transform: scale(1.08); }
+
+    .sw.hint { cursor: pointer; position: relative; animation: hintGlow 1s ease-in-out infinite; }
+    .sw.hint .tile {
+      outline: 3px solid #00e5ff;
+      border-radius: 8px;
+    }
+    .sw.hint:hover { transform: scale(1.08); }
+
+    /* ── Hint button (bulb, right end of the bot bar) — art from assets/hint.svg ── */
+    #hint-btn {
+      position: absolute;
+      left: 1541px; top: 62px;
+      width: 84px; height: 84px;
+      border-radius: 50%;
+      background: none; border: none; padding: 0;
+      cursor: pointer;
+      z-index: 6;
+      opacity: .5;
+      pointer-events: none;   /* inert until armed after 2 wrong taps */
+      transition: opacity .45s ease, transform .12s ease;
+    }
+    #hint-btn img { display: block; width: 100%; height: 100%; }
+    #hint-btn.armed { opacity: 1; pointer-events: auto; animation: hintBtnGlow 1.1s ease-in-out infinite; }
+    #hint-btn.armed:hover  { transform: scale(1.07); }
+    #hint-btn.armed:active { transform: scale(0.94); }
+    #hint-btn.used { opacity: .4; pointer-events: none; animation: none; }
+    @keyframes hintBtnGlow {
+      0%,100% { box-shadow: 0 0 6px rgba(12,228,249,.5); }
+      50%     { box-shadow: 0 0 26px 6px rgba(12,228,249,.95); }
+    }
+    /* stays hidden through the entrance cascade; JS reveals it the moment the bot bar appears */
+    #hint-btn.hb-hidden { opacity: 0; pointer-events: none; }
+    /* pop-in when it appears with the bar (transform only, so opacity/armed states are untouched) */
+    @keyframes hbPopIn {
+      0%   { transform: scale(0.3)  translateY(10px); }
+      55%  { transform: scale(1.15) translateY(-4px); }
+      78%  { transform: scale(0.95) translateY(1px); }
+      100% { transform: scale(1)    translateY(0); }
+    }
+    #hint-btn.hb-reveal { animation: hbPopIn 0.7s cubic-bezier(0.34,1.56,0.64,1); }
+
+    /* ── Hint overlay: "+N" hop arrows above the switches (assets have +N baked in) ── */
+    #hint-arrows {
+      position: absolute; inset: 0;
+      z-index: 4; pointer-events: none;
+    }
+    #hint-arrows.hidden { display: none; }
+    .hint-arrow { position: absolute; }
+    .hint-arrow img {
+      display: block; width: 100%; height: auto;
+      filter: drop-shadow(0 0 7px rgba(12,228,249,.85));
+      animation: hintArrowIn .42s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes hintArrowIn {
+      from { opacity: 0; transform: translateY(-10px) scale(0.85); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ════════════════════════════════════════════
+       LEVEL INTRO SCREEN
+    ════════════════════════════════════════════ */
+    .level-stage-lbl {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 15px; font-weight: 600;
+      letter-spacing: 8px;
+      color: rgba(0,229,255,.55);
+      text-transform: uppercase;
+      margin-bottom: -12px;
+    }
+    .level-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 110px; letter-spacing: 6px;
+      color: #00e5ff;
+      text-shadow: 0 0 40px rgba(0,229,255,.6), 0 0 80px rgba(0,200,255,.25);
+    }
+    .level-pattern-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 14px;
+      margin-top: 4px;
+    }
+    .level-pattern-lbl {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 20px; color: rgba(160,190,210,.65);
+    }
+    .level-pattern-tiles {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .level-tile {
+      width: 84px; height: 84px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(18, 28, 48, 0.82);
+      border: 1.5px solid rgba(0, 210, 230, 0.42);
+      border-radius: 16px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 46px; font-weight: 800;
+      color: #00d8f0;
+      text-shadow: 0 0 12px rgba(0,210,235,.55);
+    }
+    .level-tile-dots {
+      width: 84px; height: 84px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      background: rgba(14, 22, 40, 0.65);
+      border: 1.5px solid rgba(0,210,230,.20);
+      border-radius: 16px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 18px; font-weight: 700;
+      color: rgba(0,210,230,.45);
+      letter-spacing: 3px;
+    }
+    .level-tile-dots::before {
+      content: '';
+      position: absolute;
+      top: 9px; right: 9px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(0,210,230,.50);
+    }
+
+    /* ════════════════════════════════════════════
+       INTRO / LEVEL / COMPLETE SCREENS
+    ════════════════════════════════════════════ */
+    #screen-intro {
+      position: absolute;
+      inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding-bottom: 80px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    #title-screen-img {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    /* ── Title-screen PLAY button (image asset, bottom-right corner) ── */
+    #screen-intro .btn-play {
+      position: absolute;
+      right: 104px; bottom: 88px;
+      z-index: 2;
+    }
+    .btn-play {
+      background: none; border: none; padding: 0; margin: 0; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      width: 300px; line-height: 0;
+      will-change: transform;
+    }
+    .btn-play img {
+      width: 300px; height: auto; display: block;
+      will-change: transform, filter;
+      /* fallback shaped glow + depth (GSAP animates this when loaded) */
+      filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 18px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .level-float { animation: float 2s ease-in-out infinite; }
+
+    /* ── Themed sci-fi START button (built in CSS, crisp at any scale) ── */
+    .btn-start {
+      position: relative;
+      width: 300px; height: 92px;
+      border: none; padding: 0; margin: 0; cursor: pointer;
+      background: transparent;
+      font-family: 'Exo 2', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      filter: drop-shadow(0 6px 14px rgba(0,12,28,.55));
+      transition: transform 0.16s ease;
+      animation: startFloat 3s ease-in-out infinite;
+    }
+    /* chamfered shape shared by every layer */
+    .btn-start::before,
+    .btn-start::after,
+    .btn-start .shine {
+      clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%,
+                         20px 100%, 0 50%);
+    }
+    /* outer bright-cyan rim */
+    .btn-start::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, #d4fbff 0%, #21e6fa 32%, #0aa6cf 62%, #0b4c78 100%);
+      box-shadow: 0 0 26px rgba(12,228,249,.55);
+      animation: startGlow 2.4s ease-in-out infinite;
+    }
+    /* inner glassy blue fill, inset to leave the rim showing */
+    .btn-start::after {
+      content: ''; position: absolute; inset: 4px;
+      background:
+        linear-gradient(180deg, rgba(190,250,255,.55) 0%, rgba(57,110,150,.6) 16%,
+                        #1d4a72 46%, #0c2a48 100%);
+    }
+    /* moving sheen */
+    .btn-start .shine {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.55) 50%, transparent 62%);
+      background-size: 250% 100%; background-position: 160% 0;
+      animation: startShine 3.4s ease-in-out infinite;
+    }
+    .btn-start .lbl {
+      position: absolute; inset: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      font-size: 38px; font-weight: 800; letter-spacing: 5px;
+      text-transform: uppercase; color: #ffffff;
+      text-shadow: 0 0 12px rgba(12,228,249,.9), 0 2px 3px rgba(0,24,44,.7);
+      padding-left: 4px;   /* optical centering with the letter-spacing */
+    }
+    .btn-start .lbl::before {
+      content: '▶'; font-size: 22px; line-height: 1;
+      color: #eafdff; text-shadow: 0 0 14px rgba(12,228,249,1);
+      transform: translateY(1px);
+    }
+    .btn-start:hover { transform: scale(1.05); }
+    .btn-start:hover::before { filter: brightness(1.12); box-shadow: 0 0 38px rgba(12,228,249,.85); }
+    .btn-start:active { transform: scale(0.97); }
+
+    @keyframes startGlow {
+      0%, 100% { box-shadow: 0 0 18px rgba(12,228,249,.45); }
+      50%      { box-shadow: 0 0 34px rgba(12,228,249,.8); }
+    }
+    @keyframes startFloat {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+    @keyframes startShine {
+      0%       { background-position: 160% 0; }
+      55%, 100%{ background-position: -60% 0; }
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── Rotate-to-landscape hint (narrow portrait phones only) ── */
+    #rotate-hint {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 1000;
+      background: radial-gradient(circle at 50% 40%, #0c1d38 0%, #05101f 100%);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 18px; text-align: center; padding: 24px;
+      font-family: 'Exo 2', sans-serif;
+    }
+    #rotate-hint .rotate-phone {
+      font-size: 76px; line-height: 1;
+      animation: rotateTilt 1.8s ease-in-out infinite;
+      filter: drop-shadow(0 0 18px rgba(0,229,255,.6));
+    }
+    #rotate-hint .rotate-text {
+      font-size: 28px; font-weight: 800; color: #00e5ff;
+      text-shadow: 0 0 22px rgba(0,229,255,.55); letter-spacing: 1px;
+    }
+    #rotate-hint .rotate-sub {
+      font-size: 16px; color: rgba(200,215,225,.7);
+    }
+    @keyframes rotateTilt {
+      0%, 100% { transform: rotate(0deg); }
+      50%      { transform: rotate(-90deg); }
+    }
+    /* show only on small portrait screens (phones), where 16:9 would be unplayably small */
+    @media (orientation: portrait) and (max-width: 920px) {
+      #rotate-hint { display: flex; }
+    }
+
+    /* ── Loading screen ── */
+    #loader {
+      position: fixed; inset: 0; z-index: 2000;
+      background: #06111e;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 24px;
+      font-family: 'Exo 2', sans-serif;
+      transition: opacity 0.45s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-ring {
+      width: 62px; height: 62px;
+      border: 5px solid rgba(0,229,255,0.2);
+      border-top-color: #00e5ff;
+      border-radius: 50%;
+      animation: loaderSpin 0.9s linear infinite;
+    }
+    @keyframes loaderSpin { to { transform: rotate(360deg); } }
+    .loader-bar {
+      width: 260px; height: 8px;
+      background: rgba(0,229,255,0.15);
+      border-radius: 5px; overflow: hidden;
+    }
+    .loader-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #00b8c4, #00e5ff);
+      border-radius: 5px;
+      transition: width 0.25s ease;
+    }
+    .loader-text {
+      color: #00e5ff; font-size: 19px; font-weight: 700;
+      letter-spacing: 3px;
+      text-shadow: 0 0 16px rgba(0,229,255,.55);
+    }
+
+    /* ════════════════════════════════════════════
+       CONFETTI — themed energy burst on pattern complete
+    ════════════════════════════════════════════ */
+    #fx-confetti {
+      position: absolute; inset: 0;
+      width: 1920px; height: 1080px;
+      pointer-events: none;
+      z-index: 50;            /* above the gameplay, below the blast doors (60) */
+    }
+
+    /* ════════════════════════════════════════════
+       LEVEL TRANSITION — sci-fi blast doors
+    ════════════════════════════════════════════ */
+    #transition {
+      position: absolute; inset: 0;
+      z-index: 60; pointer-events: none;
+      overflow: hidden;
+    }
+    #transition.hidden { display: none !important; }
+    .trans-half {
+      position: absolute; left: 0; width: 100%; height: 51%;
+      background:
+        repeating-linear-gradient(90deg, rgba(15,229,250,0.045) 0 2px, transparent 2px 72px),
+        linear-gradient(180deg, #0c1d38 0%, #05101f 100%);
+      transition: transform 0.65s cubic-bezier(0.55, 0, 0.3, 1);
+    }
+    .trans-top {
+      top: 0; transform: translateY(-100%);
+      border-bottom: 4px solid #848ea9;
+      box-shadow: inset 0 -10px 26px rgba(15,229,250,.30), 0 7px 34px rgba(15,229,250,.55);
+    }
+    .trans-bottom {
+      bottom: 0; transform: translateY(100%);
+      border-top: 4px solid #848ea9;
+      box-shadow: inset 0 10px 26px rgba(15,229,250,.30), 0 -7px 34px rgba(15,229,250,.55);
+    }
+    #transition.closed .trans-top,
+    #transition.closed .trans-bottom { transform: translateY(0); }
+
+    .trans-flash {
+      position: absolute; left: 0; top: 50%;
+      width: 100%; height: 6px;
+      transform: translateY(-50%) scaleX(0);
+      background: linear-gradient(90deg, transparent, #aef6ff 18%, #ffffff 50%, #aef6ff 82%, transparent);
+      box-shadow: 0 0 34px 10px rgba(15,229,250,.9);
+      opacity: 0;
+    }
+    #transition.closed .trans-flash { animation: seamFlash 0.65s ease-out forwards; }
+    @keyframes seamFlash {
+      0%,52% { opacity: 0;    transform: translateY(-50%) scaleX(0); }
+      74%    { opacity: 1;    transform: translateY(-50%) scaleX(1); }
+      100%   { opacity: 0.45; transform: translateY(-50%) scaleX(1); }
+    }
+
+    /* ════════════════════════════════════════════
+       END / COMPLETE SCREEN
+    ════════════════════════════════════════════ */
+    #screen-complete {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #06111e;
+      animation: fadeIn 0.55s ease both;
+    }
+    #end-video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #end-panel {
+      position: relative;
+      width: 1776px; height: 900px;
+      background: #041840;
+      border-radius: 24px;
+      animation: greenBorderPulse 1.2s ease-in-out infinite;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 60px;
+    }
+
+    #end-title {
+      display: none;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 80px; font-weight: 900;
+      color: #00e8ff; letter-spacing: 3px;
+      text-shadow: 0 0 40px rgba(0,232,255,.75), 0 0 80px rgba(0,200,255,.4), 0 4px 0 rgba(0,0,0,.5);
+      white-space: nowrap;
+      text-align: center;
+      animation: wellDonePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    #end-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      width: 100%;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+    }
+
+    .end-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .end-row .power-btn {
+      width: 96px; height: 96px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .end-row .power-btn.pulsing { animation: pulse 1.2s ease-in-out infinite; }
+
+    .end-row .sw {
+      width: 96px; height: 130px;
+    }
+    .end-row .tile-num { font-size: 58px; }
+
+    /* Play Again reuses the themed .btn-start look (see below), re-sized + repositioned */
+    #end-play-again {
+      position: absolute;
+      bottom: 64px; left: 50%;
+      width: 360px; height: 86px;
+      transform: translateX(-50%);
+      animation: fadeIn 0.5s ease both;   /* no float here; the rim keeps its glow pulse */
+    }
+    #end-play-again .lbl { font-size: 30px; letter-spacing: 3px; padding-left: 0; }
+    #end-play-again .lbl::before { content: '\21BB'; font-size: 28px; transform: translateY(0); }
+    #end-play-again:hover { transform: translateX(-50%) scale(1.04); }
+    #end-play-again:active { transform: translateX(-50%) scale(0.97); }
+  </style>
+</head>
+<body>
+
+<div id="canvas">
+
+  <!-- ── INTRO ─────────────────────────────────── -->
+  <div id="screen-intro">
+    <img id="title-screen-img" src="assets/title screen.webp" alt="Lights Out" />
+    <button class="btn-play" onclick="handleStart()" aria-label="Play">
+      <img src="assets/play button.svg" alt="Play" />
+    </button>
+  </div>
+
+  <!-- ── LEVEL INTRO ───────────────────────────── -->
+  <div id="screen-level" class="overlay hidden">
+    <div class="level-stage-lbl"></div>
+    <div id="level-name" class="level-title level-float"></div>
+    <div class="level-pattern-wrap">
+      <div class="level-pattern-lbl">pattern:</div>
+      <div id="level-pattern-tiles" class="level-pattern-tiles"></div>
+    </div>
+  </div>
+
+  <!-- ── QUESTION ──────────────────────────────── -->
+  <div id="screen-question" class="hidden">
+
+    <!-- Robot -->
+    <div id="qrobot"><img src="assets/figma/robot.webp" alt="robot" /></div>
+    <img id="byte-dance" src="assets/robot dance.webp" alt="" />
+
+    <!-- Top text bar -->
+    <div id="bot-bar">
+      <img class="frame" src="assets/figma/textbox.svg" alt="" />
+      <span id="bot-text">Tap the correct switch.</span>
+    </div>
+
+    <!-- Power button (top-right) -->
+    <img id="power-btn" src="assets/Red button.webp" alt="power" />
+
+    <!-- Hint button (bulb) — hidden until the bot bar appears; glows after 2 wrong taps -->
+    <button id="hint-btn" class="hb-hidden" aria-label="Show hint">
+      <img src="assets/hint.svg" alt="Hint" />
+    </button>
+
+    <!-- Glowing pipe connectors -->
+    <div class="connector cn-h" style="left:1474px;top:423px;width:324.752px;height:69.01px;">
+      <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /></div>
+    </div>
+    <div class="connector cn-v" style="left:1752px;top:129px;width:69px;height:304px;display:flex;align-items:center;justify-content:center;">
+      <div style="transform:rotate(-90deg);flex:none;">
+        <div style="position:relative;width:304px;height:69px;">
+          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /></div>
+        </div>
+      </div>
+    </div>
+    <div class="connector cn-v cn-small" style="left:1752px;top:420px;width:69.01px;height:48.713px;display:flex;align-items:center;justify-content:center;">
+      <div style="transform:rotate(-90deg);flex:none;">
+        <div style="position:relative;width:48.713px;height:69.01px;">
+          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.02%;left:-666.67%;top:-135.51%;width:1441.67%;" /></div>
+        </div>
+      </div>
+    </div>
+    <div class="connector opt-pipe" style="left:542px;top:648px;width:69px;height:155px;display:flex;align-items:center;justify-content:center;">
+      <div style="transform:rotate(-90deg);flex:none;">
+        <div style="position:relative;width:155px;height:69px;">
+          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
+        </div>
+      </div>
+    </div>
+    <div class="connector opt-pipe" style="left:1108px;top:648px;width:69px;height:155px;display:flex;align-items:center;justify-content:center;">
+      <div style="transform:rotate(-90deg);flex:none;">
+        <div style="position:relative;width:155px;height:69px;">
+          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decorative glow line (options box) -->
+
+    <!-- Main panel -->
+    <div id="main-panel">
+      <img id="panel-frame" src="assets/figma/panel.svg" alt="" />
+      <!-- vent bars overlaid on the panel housing (recolour by game state) -->
+      <div class="vent-bars">
+        <span class="vent-bar" style="left:701.3px;top:24.8px;width:52.3px;height:19.4px;"></span>
+        <span class="vent-bar" style="left:760.5px;top:24.8px;width:50.7px;height:19.4px;"></span>
+        <span class="vent-bar" style="left:818.0px;top:24.8px;width:52.3px;height:19.4px;"></span>
+      </div>
+      <div id="switch-row"></div>
+      <!-- Hint overlay: "+N" hop arrows above the switches (populated in JS on reveal) -->
+      <div id="hint-arrows" class="hidden"></div>
+      <div id="well-done-msg" class="hidden">
+        <img id="robot-dance" src="assets/robot dance.webp" alt="robot" />
+        <span id="well-done-text">Well done!</span>
+      </div>
+      <div id="wrong-msg" class="hidden"></div>
+    </div>
+
+    <!-- Options box -->
+    <div id="options-box">
+      <img class="frame" src="assets/figma/options-box.svg" alt="" />
+      <div id="options-area"></div>
+    </div>
+
+  </div>
+
+  <!-- ── COMPLETE ──────────────────────────────── -->
+  <div id="screen-complete" class="hidden">
+    <video id="end-video" src="assets/end-video.webm" playsinline preload="auto"></video>
+    <button id="end-play-again" class="btn-start hidden" onclick="resetGame()" aria-label="Play Again">
+      <span class="shine"></span>
+      <span class="lbl">Play Again</span>
+    </button>
+  </div>
+
+  <!-- ── Confetti burst (energy shards / sparks on pattern complete) ── -->
+  <canvas id="fx-confetti"></canvas>
+
+  <!-- ── LEVEL TRANSITION (sci-fi blast doors) ─── -->
+  <div id="transition" class="hidden">
+    <div class="trans-half trans-top"></div>
+    <div class="trans-half trans-bottom"></div>
+    <div class="trans-flash"></div>
+  </div>
+
+</div><!-- #canvas -->
+
+<!-- ── Rotate-to-landscape hint (narrow portrait phones) ── -->
+<div id="rotate-hint">
+  <div class="rotate-phone">📱</div>
+  <div class="rotate-text">Rotate your device</div>
+  <div class="rotate-sub">Turn sideways to play</div>
+</div>
+
+<!-- ── Loading screen (waits for all assets before the game starts) ── -->
+<div id="loader">
+  <div class="loader-ring"></div>
+  <div class="loader-bar"><div class="loader-bar-fill" id="loader-fill"></div></div>
+  <div class="loader-text">Loading…</div>
+</div>
+
+<!-- GSAP (for the play-button attention effects) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+  /* ── Voice lines ─────────────────────────────────── */
+  const voiceTapCorrect = new Audio('audio/tap the correct switch .ogg');
+  const voiceUhOh       = new Audio('audio/Uh-oh! Try again!.ogg');
+  const voiceHint       = new Audio("audio/Check the pattern again.ogg");
+
+  /* ── Spoken-number clips (only the numbers we have .ogg files for) ── */
+  const NUMBER_VOICES = {
+    3:  new Audio('audio/3.ogg'),
+    4:  new Audio('audio/4.ogg'),
+    5:  new Audio('audio/5.ogg'),
+    7:  new Audio('audio/7.ogg'),
+    10: new Audio('audio/10.ogg'),
+    11: new Audio('audio/11.ogg'),
+    13: new Audio('audio/13.ogg'),
+  };
+
+  /* speak a number when the player places it (silently skips numbers with no clip) */
+  function playNumberVoice(n) {
+    const snd = NUMBER_VOICES[n];
+    if (!snd) return;
+    snd.currentTime = 0;
+    snd.play().catch(() => {});
+  }
+
+  let _voicePlaying = false;
+  const _voiceQueue = [];
+
+  function _setOptionsLock(locked) {
+    const el = document.getElementById('options-area');
+    if (el) el.style.pointerEvents = locked ? 'none' : '';
+  }
+
+  /* typewriter the dialogue out, blipping softly as the character "speaks" */
+  let _typeTimer = null;
+  function _typeBotText(text) {
+    const el = document.getElementById('bot-text');
+    if (!el) return;
+    el.textContent = '';
+    if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
+    let i = 0;
+    _typeTimer = setInterval(() => {
+      i++;
+      el.textContent = text.slice(0, i);
+      const ch = text[i - 1];
+      if (i % 2 === 0 && ch && ch !== ' ') sfxTalk();
+      if (i >= text.length) { clearInterval(_typeTimer); _typeTimer = null; }
+    }, 55);
+  }
+
+  function _advanceQueue() {
+    if (_voiceQueue.length === 0) {
+      _voicePlaying = false;
+      _setOptionsLock(false);
+      return;
+    }
+    const item = _voiceQueue.shift();
+    _voicePlaying = true;
+    _setOptionsLock(true);
+    let advanced = false;
+    const finish = () => {
+      if (advanced) return; advanced = true;
+      if (item.onDone) item.onDone();
+      _advanceQueue();
+    };
+    if (item.action) {
+      /* custom step (e.g. read the pattern aloud) — no bot text; calls finish when done */
+      item.action(finish);
+      return;
+    }
+    _typeBotText(item.text);
+    if (item.audio) {
+      item.audio.currentTime = 0;
+      item.audio.onended = finish;
+      /* no voice file → advance once the text has typed out + a short read hold */
+      item.audio.play().catch(() => setTimeout(finish, item.text.length * 55 + 900));
+    } else {
+      /* narration line with no audio → hold long enough to read */
+      setTimeout(finish, item.text.length * 55 + 1300);
+    }
+  }
+
+  function queueBotText(text, audio, onDone) {
+    _voiceQueue.push({ text, audio, onDone });
+    if (!_voicePlaying) _advanceQueue();
+  }
+
+  /* queue a custom step that runs in sequence with the dialogue (options stay locked) */
+  function queueAction(action) {
+    _voiceQueue.push({ action });
+    if (!_voicePlaying) _advanceQueue();
+  }
+
+  function clearVoiceQueue() {
+    _voiceQueue.length = 0;
+    _voicePlaying = false;
+    _setOptionsLock(false);
+    if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
+    [voiceTapCorrect, voiceUhOh, voiceHint].forEach(a => { a.pause(); a.currentTime = 0; });
+  }
+
+  /* ── SFX (Web Audio API — no external files) ─────── */
+  let _ctx = null;
+  function ac() {
+    if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return _ctx;
+  }
+
+  /* master output — boosts overall SFX loudness, compressor tames peaks so it stays clean */
+  let _master = null;
+  function masterGain() {
+    if (!_master) {
+      const ctx = ac();
+      _master = ctx.createGain();
+      _master.gain.value = 1.9;
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -10;
+      comp.ratio.value = 12;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.25;
+      _master.connect(comp);
+      comp.connect(ctx.destination);
+    }
+    return _master;
+  }
+
+  function sfxHover() {
+    const ctx = ac(), o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(masterGain());
+    o.type = 'sine';
+    o.frequency.setValueAtTime(1100, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.06);
+    g.gain.setValueAtTime(0.06, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.07);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.07);
+  }
+
+  function sfxClick() {
+    const ctx = ac();
+    /* body click thud */
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.012));
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf; src.connect(g); g.connect(masterGain());
+    g.gain.setValueAtTime(0.35, ctx.currentTime);
+    src.start(ctx.currentTime);
+    /* tonal click layer */
+    const o = ctx.createOscillator(), g2 = ctx.createGain();
+    o.connect(g2); g2.connect(masterGain());
+    o.type = 'square';
+    o.frequency.setValueAtTime(520, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.08);
+    g2.gain.setValueAtTime(0.12, ctx.currentTime);
+    g2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.1);
+  }
+
+  function sfxWrong() {
+    const ctx = ac();
+    [0, 0.13, 0.26].forEach((t, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(masterGain());
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(180 - i * 30, ctx.currentTime + t);
+      o.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + t + 0.12);
+      g.gain.setValueAtTime(0.18, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.14);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.14);
+    });
+  }
+
+  function sfxCorrect() {
+    const ctx = ac();
+    [523, 659, 784].forEach((freq, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(masterGain());
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.14, ctx.currentTime + i * 0.1);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.1 + 0.22);
+      o.start(ctx.currentTime + i * 0.1); o.stop(ctx.currentTime + i * 0.1 + 0.22);
+    });
+  }
+
+  function sfxRowComplete() {
+    const ctx = ac();
+    [523, 659, 784, 1047].forEach((freq, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(masterGain());
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.16, ctx.currentTime + i * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.09 + 0.28);
+      o.start(ctx.currentTime + i * 0.09); o.stop(ctx.currentTime + i * 0.09 + 0.28);
+    });
+  }
+
+  /* switch dropping in — mechanical clack + an ascending electronic blip */
+  function sfxSwitchAppear(i) {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let k = 0; k < d.length; k++) d[k] = (Math.random() * 2 - 1) * Math.exp(-k / (ctx.sampleRate * 0.007));
+    const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), cg = ctx.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 1.1;
+    cg.gain.value = 0.42;
+    src.connect(bp); bp.connect(cg); cg.connect(masterGain());
+    src.start(t0);
+
+    const base = 430 + (i % 8) * 60;          /* rises across the row */
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(base * 0.6, t0);
+    o.frequency.exponentialRampToValueAtTime(base, t0 + 0.06);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.11, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.22);
+  }
+
+  /* bot bar slides open — rising sweep + a soft confirm chime */
+  function sfxBarOpen() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, t0);
+    o.frequency.exponentialRampToValueAtTime(640, t0 + 0.28);
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(700, t0);
+    f.frequency.exponentialRampToValueAtTime(3200, t0 + 0.28);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.10, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+    o.connect(f); f.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.36);
+
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(900, t0 + 0.18);
+    o2.frequency.exponentialRampToValueAtTime(1400, t0 + 0.32);
+    g2.gain.setValueAtTime(0.0001, t0 + 0.18);
+    g2.gain.exponentialRampToValueAtTime(0.05, t0 + 0.24);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.36);
+    o2.connect(g2); g2.connect(masterGain());
+    o2.start(t0 + 0.18); o2.stop(t0 + 0.36);
+  }
+
+  /* bot bar slides closed — descending sweep */
+  function sfxBarClose() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(560, t0);
+    o.frequency.exponentialRampToValueAtTime(170, t0 + 0.3);
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(2800, t0);
+    f.frequency.exponentialRampToValueAtTime(560, t0 + 0.3);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+    o.connect(f); f.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.36);
+  }
+
+  /* soft blip while the character "speaks" (typewriter dialogue) */
+  function sfxTalk() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square';
+    o.frequency.value = 380 + Math.random() * 150;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.06);
+  }
+
+  /* soft playful blip as each element pops onto the screen */
+  function sfxPop(freq) {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(freq * 0.7, t0);
+    o.frequency.exponentialRampToValueAtTime(freq, t0 + 0.06);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.13, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.2);
+  }
+
+  /* panel power-on — rising tone + a bright shimmer at the moment it opens */
+  function sfxPanelOpen() {
+    const ctx = ac();
+    const t0  = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(165, t0);
+    o.frequency.exponentialRampToValueAtTime(760, t0 + 0.95);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.14);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.15);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 1.2);
+
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(1100, t0 + 0.45);
+    o2.frequency.exponentialRampToValueAtTime(1980, t0 + 0.95);
+    g2.gain.setValueAtTime(0.0001, t0 + 0.45);
+    g2.gain.exponentialRampToValueAtTime(0.09, t0 + 0.62);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.05);
+    o2.connect(g2); g2.connect(masterGain());
+    o2.start(t0 + 0.45); o2.stop(t0 + 1.05);
+  }
+
+  /* deploy whoosh — rising energy sweep + airy whoosh, then a thunk + ding as the box lands */
+  function sfxDeploy() {
+    const ctx = ac();
+    const t0  = ctx.currentTime;
+
+    /* 1 — rising energy sweep (the pipes + box travelling down) */
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(110, t0);
+    o.frequency.exponentialRampToValueAtTime(560, t0 + 1.15);
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(420, t0);
+    f.frequency.exponentialRampToValueAtTime(2800, t0 + 1.15);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.10, t0 + 0.14);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
+    o.connect(f); f.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 1.3);
+
+    /* 2 — airy whoosh (filtered noise sweeping up) */
+    const dur = 1.2;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const nd  = buf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const ns = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
+    ns.buffer = buf; nf.type = 'bandpass'; nf.Q.value = 0.7;
+    nf.frequency.setValueAtTime(280, t0);
+    nf.frequency.exponentialRampToValueAtTime(2400, t0 + 1.1);
+    ng.gain.setValueAtTime(0.0001, t0);
+    ng.gain.exponentialRampToValueAtTime(0.05, t0 + 0.18);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+    ns.connect(nf); nf.connect(ng); ng.connect(masterGain());
+    ns.start(t0); ns.stop(t0 + dur);
+
+    /* 3 — settle: mechanical thunk + confirm ding when the box lands */
+    const settleAt = t0 + 1.4;
+    const tb = ctx.createBuffer(1, ctx.sampleRate * 0.09, ctx.sampleRate);
+    const td = tb.getChannelData(0);
+    for (let i = 0; i < td.length; i++) td[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.013));
+    const ts = ctx.createBufferSource(), tg = ctx.createGain();
+    ts.buffer = tb; tg.gain.setValueAtTime(0.32, settleAt);
+    ts.connect(tg); tg.connect(masterGain());
+    ts.start(settleAt);
+
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(820, settleAt);
+    o2.frequency.exponentialRampToValueAtTime(1280, settleAt + 0.13);
+    g2.gain.setValueAtTime(0.12, settleAt);
+    g2.gain.exponentialRampToValueAtTime(0.0001, settleAt + 0.32);
+    o2.connect(g2); g2.connect(masterGain());
+    o2.start(settleAt); o2.stop(settleAt + 0.32);
+  }
+
+  /* transition — power-down hum + a metallic slam as the doors meet */
+  function sfxPowerDown() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(520, t0);
+    o.frequency.exponentialRampToValueAtTime(85, t0 + 0.6);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.13, t0 + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.68);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.7);
+
+    const slamAt = t0 + 0.6;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.13, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.022));
+    const s = ctx.createBufferSource(), sg = ctx.createGain();
+    s.buffer = buf; sg.gain.setValueAtTime(0.5, slamAt);
+    s.connect(sg); sg.connect(masterGain());
+    s.start(slamAt);
+  }
+
+  /* transition — power-up surge as the doors slide open */
+  function sfxPowerUp() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(120, t0);
+    o.frequency.exponentialRampToValueAtTime(700, t0 + 0.5);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.13, t0 + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.65);
+
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(1300, t0 + 0.05);
+    o2.frequency.exponentialRampToValueAtTime(2100, t0 + 0.45);
+    g2.gain.setValueAtTime(0.0001, t0 + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.07, t0 + 0.2);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+    o2.connect(g2); g2.connect(masterGain());
+    o2.start(t0 + 0.05); o2.stop(t0 + 0.55);
+  }
+
+  /* current surge — loud electric power-up that flows through the vent + pipes (attention grabber).
+     Routed direct to destination (bypassing the master limiter) so it punches through clearly. */
+  function sfxCurrentFlow() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const out = ctx.createGain(); out.gain.value = 1.0; out.connect(ctx.destination);
+
+    /* low-end impact whoomp for body */
+    const lo = ctx.createOscillator(), lg = ctx.createGain();
+    lo.type = 'sine';
+    lo.frequency.setValueAtTime(95, t0);
+    lo.frequency.exponentialRampToValueAtTime(190, t0 + 0.28);
+    lg.gain.setValueAtTime(0.0001, t0);
+    lg.gain.exponentialRampToValueAtTime(0.5, t0 + 0.05);
+    lg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    lo.connect(lg); lg.connect(out);
+    lo.start(t0); lo.stop(t0 + 0.52);
+
+    /* rising buzzy surge — loud and sustained */
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(150, t0);
+    o.frequency.exponentialRampToValueAtTime(900, t0 + 0.5);
+    f.type = 'bandpass'; f.Q.value = 1.8;
+    f.frequency.setValueAtTime(450, t0);
+    f.frequency.exponentialRampToValueAtTime(2900, t0 + 0.5);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.42, t0 + 0.07);
+    g.gain.setValueAtTime(0.42, t0 + 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95);
+    o.connect(f); f.connect(g); g.connect(out);
+    o.start(t0); o.stop(t0 + 0.98);
+
+    /* electric crackle bursts */
+    [0, 0.13, 0.28, 0.44, 0.6].forEach(t => {
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.045, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.005));
+      const s = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), cg = ctx.createGain();
+      s.buffer = buf; bp.type = 'highpass'; bp.frequency.value = 2400; cg.gain.value = 0.5;
+      s.connect(bp); bp.connect(cg); cg.connect(out);
+      s.start(t0 + t);
+    });
+
+    /* bright confirm shimmer at the end */
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(1250, t0 + 0.45);
+    o2.frequency.exponentialRampToValueAtTime(1950, t0 + 0.78);
+    g2.gain.setValueAtTime(0.0001, t0 + 0.45);
+    g2.gain.exponentialRampToValueAtTime(0.22, t0 + 0.55);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+    o2.connect(g2); g2.connect(out);
+    o2.start(t0 + 0.45); o2.stop(t0 + 0.9);
+  }
+
+  /* ── Scale canvas to fit any viewport (letterboxed, aspect-preserved) ── */
+  function scaleCanvas() {
+    const el = document.getElementById('canvas');
+    if (!el) return;
+    const vp = window.visualViewport;
+    const vw = (vp && vp.width)  || window.innerWidth  || document.documentElement.clientWidth;
+    const vh = (vp && vp.height) || window.innerHeight || document.documentElement.clientHeight;
+    const s  = Math.min(vw / 1920, vh / 1080);
+    /* centre the scaled canvas with an explicit translate (letterbox offsets) */
+    const tx = Math.round((vw - 1920 * s) / 2);
+    const ty = Math.round((vh - 1080 * s) / 2);
+    el.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+  }
+  let _scaleRAF = null;
+  function requestScale() {
+    if (_scaleRAF) cancelAnimationFrame(_scaleRAF);
+    _scaleRAF = requestAnimationFrame(scaleCanvas);
+  }
+  window.addEventListener('resize', requestScale);
+  window.addEventListener('orientationchange', requestScale);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', requestScale);
+  scaleCanvas();
+  /* a couple of follow-up passes catch mobile address-bar / late layout shifts */
+  window.addEventListener('load', scaleCanvas);
+  setTimeout(scaleCanvas, 300);
+
+  /* ── Game config ───────────────────────────────── */
+  /* Each level is a 7-slot skip-counting sequence. `prefilled` lists the slot indices
+     shown from the start; the player fills the remaining slots (in order) by tapping the
+     correct option. `options` are the 4 tiles shown below (one is a distractor). */
+  const ROWS_CONFIG = [
+    { seq: [2, 4, 6, 8, 10, 12, 14],   prefilled: [0, 1, 2, 3], options: [12, 10, 16, 14], label: 'Level 1' },
+    { seq: [3, 6, 9, 12, 15, 18, 21],  prefilled: [0, 1, 2, 3], options: [21, 24, 18, 15], label: 'Level 2' },
+    { seq: [5, 10, 15, 20, 25, 30, 35], prefilled: [0, 1, 2, 4], options: [16, 20, 35, 30], label: 'Level 3' },
+    { seq: [1, 3, 5, 7, 9, 11, 13],    prefilled: [0, 1, 2, 4], options: [13, 6, 7, 11], label: 'Level 4' },
+  ];
+  const TOTAL = 7;
+  const SWITCH_OFFSET_MS = 3850;   /* wait for the box to open + the pipe & power to appear */
+  const SWITCH_STEP_MS   = 340;    /* gap between each switch dropping in */
+
+  function getUserPositions(cfg) {
+    const pre = new Set(cfg.prefilled);
+    const pos = [];
+    for (let i = 0; i < cfg.seq.length; i++) if (!pre.has(i)) pos.push(i);
+    return pos;
+  }
+
+  /* ── State ─────────────────────────────────────── */
+  let phase       = 'intro';
+  let currentRow  = 0;
+  let grid        = [];
+  let wrongCount  = 0;
+  let wrongAnswer = null;
+  let showHint    = false;
+  let justPlaced  = false;
+  let firstRender = false;
+  let score       = 0;
+  let streak      = 0;
+  let timer       = null;
+  let levelTimer  = null;
+
+  function initGrid() {
+    /* the player fills the non-prefilled slots in order, so each row starts empty */
+    grid = ROWS_CONFIG.map(() => []);
+  }
+
+  function getCorrect(cfg, filledCount) {
+    const pos = getUserPositions(cfg);
+    return cfg.seq[pos[filledCount]];
+  }
+
+  /* ── Hint feature ──────────────────────────────────
+     After 2 wrong taps the bulb button glows ("armed"). Tapping it reveals the pattern
+     hint: "+N" hop arrows above the switches + the correct option glowing. The arrow art
+     already has the step baked in (arrow arc = +2, arrow arc 3 = +3, arrow arc 2 = +5). */
+  const SW_TILE = 128, SW_GAP = 23, SW_PITCH = SW_TILE + SW_GAP, PANEL_W = 1573.948;
+  const HINT_ARROW_SRC = { 2: 'assets/arrow arc.webp', 3: 'assets/arrow arc 3.webp', 5: 'assets/arrow arc 2.webp' };
+  let hintArmed = false;
+
+  /* panel-relative x-centre of switch i, matching the centred flex row in CSS */
+  function switchCenterX(i, count) {
+    const rowW = count * SW_TILE + (count - 1) * SW_GAP;
+    return (PANEL_W - rowW) / 2 + i * SW_PITCH + SW_TILE / 2;
+  }
+
+  function buildHintArrows(cfg) {
+    const wrap = document.getElementById('hint-arrows');
+    wrap.innerHTML = '';
+    const count = cfg.seq.length;
+    const step  = cfg.seq[1] - cfg.seq[0];
+    const src   = HINT_ARROW_SRC[step] || HINT_ARROW_SRC[2];
+    const AW    = 120;   /* scaled to fit the band above the switches (~82px tall) */
+    for (let i = 0; i < count - 1; i++) {          /* one arrow per gap between switches */
+      const mid = switchCenterX(i, count) + SW_PITCH / 2;
+      const a = document.createElement('div');
+      a.className = 'hint-arrow';
+      a.style.left  = (mid - AW / 2) + 'px';
+      a.style.top   = '72px';   /* below the vent housing, arrowheads just above the switches */
+      a.style.width = AW + 'px';
+      const img = document.createElement('img');
+      img.src = src; img.alt = '+' + step;
+      img.style.animationDelay = (i * 0.07) + 's';
+      a.appendChild(img);
+      wrap.appendChild(a);
+    }
+  }
+
+  function armHint() {
+    if (showHint) return;   /* already revealed for this slot */
+    hintArmed = true;
+    const b = document.getElementById('hint-btn');
+    if (b) { b.classList.add('armed'); b.classList.remove('used'); }
+  }
+
+  /* clear all hint state — called on new slot / level / reset */
+  function resetHint() {
+    hintArmed = false;
+    const b = document.getElementById('hint-btn');
+    if (b) b.classList.remove('armed', 'used');
+    const w = document.getElementById('hint-arrows');
+    if (w) { w.classList.add('hidden'); w.innerHTML = ''; }
+  }
+
+  /* player tapped the glowing bulb → reveal the pattern hint */
+  function revealHint() {
+    if (!hintArmed) return;
+    hintArmed = false;
+    showHint = true;
+    const b = document.getElementById('hint-btn');
+    if (b) { b.classList.remove('armed'); b.classList.add('used'); }
+    sfxPop(720);
+    buildHintArrows(ROWS_CONFIG[currentRow]);
+    document.getElementById('hint-arrows').classList.remove('hidden');
+    renderQuestion();                 /* makes the correct option glow (showHint) */
+    queueBotText('Follow the pattern!');
+  }
+
+  /* ── Screen switching ──────────────────────────── */
+  function showScreen(name) {
+    ['intro','level','question','complete'].forEach(s =>
+      document.getElementById('screen-' + s).classList.toggle('hidden', s !== name)
+    );
+  }
+
+  /* Blast-door transition: doors slide shut, swap the screen behind them, slide open */
+  function playTransition(swap) {
+    const t = document.getElementById('transition');
+    t.classList.remove('hidden', 'closed');
+    void t.offsetWidth;
+    t.classList.add('closed');                       /* doors slide shut */
+    sfxPowerDown();
+    setTimeout(() => { if (swap) swap(); }, 700);    /* swap the screen while covered */
+    setTimeout(() => {
+      t.classList.remove('closed');                  /* doors slide open on the new screen */
+      sfxPowerUp();
+      setTimeout(() => t.classList.add('hidden'), 700);
+    }, 1050);
+  }
+
+  /* ── DOM builder ───────────────────────────────── */
+  function makeSw(num, stateClass, onClick) {
+    const div = document.createElement('div');
+    div.className = 'sw ' + stateClass;
+    if (num != null) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      const span = document.createElement('span');
+      span.className = 'tile-num';
+      span.textContent = String(num);
+      tile.appendChild(span);
+      div.appendChild(tile);
+    }
+    if (onClick) {
+      /* hover sound — throttled so rapid mouse moves don't stack */
+      let hoverCooldown = false;
+      div.addEventListener('mouseenter', () => {
+        if (hoverCooldown) return;
+        sfxHover();
+        hoverCooldown = true;
+        setTimeout(() => { hoverCooldown = false; }, 80);
+      });
+      /* click sound fires immediately; game logic fires after */
+      div.addEventListener('click', () => { sfxClick(); onClick(); });
+    }
+    return div;
+  }
+
+  /* ── Sparks: fling glowing particles from a wrong switch ── */
+  function spawnSparks(el, count) {
+    if (!el) return;
+    count = count || 20;
+
+    /* central burst flash for impact */
+    const burst = document.createElement('div');
+    burst.className = 'spark-burst';
+    el.appendChild(burst);
+    burst.animate([
+      { transform: 'translate(-50%,-50%) scale(0.2)', opacity: 0.95 },
+      { transform: 'translate(-50%,-50%) scale(1.9)', opacity: 0 }
+    ], { duration: 380, easing: 'ease-out' }).onfinish = () => burst.remove();
+
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('div');
+      s.className = 'spark';
+      const size = 5 + Math.random() * 7;
+      s.style.width = s.style.height = size + 'px';
+      const hue = 18 + Math.random() * 38;            /* orange → yellow */
+      s.style.background = `radial-gradient(circle, #fff 0%, hsl(${hue},100%,58%) 70%)`;
+      el.appendChild(s);
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = 55 + Math.random() * 95;
+      const dx    = Math.cos(angle) * dist;
+      const up    = -Math.abs(Math.sin(angle) * dist) * 0.6 - (18 + Math.random() * 42);
+      const fall  = 130 + Math.random() * 120;
+      const dur   = 480 + Math.random() * 360;
+      s.animate([
+        { transform: 'translate(-50%,-50%) translate(0px,0px) scale(1)', opacity: 1 },
+        { transform: `translate(-50%,-50%) translate(${dx}px, ${up}px) scale(1)`, opacity: 1, offset: 0.35 },
+        { transform: `translate(-50%,-50%) translate(${dx * 1.25}px, ${up + fall}px) scale(0.15)`, opacity: 0 }
+      ], { duration: dur, easing: 'cubic-bezier(0.18,0.7,0.3,1)' }).onfinish = () => s.remove();
+    }
+  }
+
+  /* ── Render question screen ────────────────────── */
+  function renderQuestion() {
+    const cfg     = ROWS_CONFIG[currentRow];
+    const row     = grid[currentRow];
+    const correct = getCorrect(cfg, row.length);
+
+    const isRowComplete = phase === 'row-complete';
+
+    /* ── Panel & chrome state ── */
+    const panel  = document.getElementById('main-panel');
+    const botBar = document.getElementById('bot-bar');
+    if (isRowComplete) { panel.classList.remove('opening'); document.getElementById('screen-question').classList.remove('intro'); }
+    panel.classList.toggle('row-complete', isRowComplete);
+    if (!isRowComplete) panel.classList.remove('well-done-active');
+    document.getElementById('screen-question').classList.toggle('celebrating', isRowComplete);
+
+    /* Vent bars react to input: red on a wrong answer, green on a correct placement */
+    const ventWrong = phase === 'wrong' || phase === 'wrong-second';
+    panel.classList.toggle('vent-wrong', ventWrong);
+    panel.classList.toggle('vent-correct', !ventWrong && justPlaced);
+    botBar.style.visibility = isRowComplete ? 'hidden' : 'visible';
+
+    /* Well done overlay — reveal handled by the timer in handleAnswer */
+    const wellDoneEl = document.getElementById('well-done-msg');
+    if (!isRowComplete) {
+      wellDoneEl.classList.add('hidden');
+    }
+
+    /* Wrong answer overlay */
+    const wrongEl = document.getElementById('wrong-msg');
+    if (phase === 'wrong') {
+      wrongEl.classList.remove('hidden');
+      wrongEl.style.animation = 'none';
+      wrongEl.offsetHeight;
+      wrongEl.style.animation = '';
+    } else {
+      wrongEl.classList.add('hidden');
+    }
+
+    /* ── Switch row container ── */
+    const swRow = document.getElementById('switch-row');
+    swRow.innerHTML = '';
+    swRow.classList.toggle('shaking', phase === 'wrong');
+    if (phase === 'wrong') { void swRow.offsetWidth; }
+
+    const userPositions = getUserPositions(cfg);
+    const rowFull       = row.length >= userPositions.length;
+
+    /* ── Power button (top-right, separate from row) ── */
+    const powerEl = document.getElementById('power-btn');
+    powerEl.src = rowFull ? 'assets/Green button.webp' : 'assets/Red button.webp';
+    powerEl.alt = rowFull ? 'ON' : 'OFF';
+    powerEl.classList.toggle('pulsing', rowFull);   /* powers ON (green) when the row is full */
+    /* current flows through the pipes the moment the pattern is completed */
+    const patternDone = rowFull && !isRowComplete;
+    document.getElementById('screen-question').classList.toggle('current-on', patternDone);
+    /* main panel border turns green on a correct, completed pattern (Figma success screen) */
+    document.getElementById('panel-frame').src = patternDone ? 'assets/figma/panel-green.svg' : 'assets/figma/panel.svg';
+
+    /* ── 7 switch slots ── */
+    const stepMs    = SWITCH_STEP_MS;
+    const offsetMs  = SWITCH_OFFSET_MS;
+    const prefilled = new Set(cfg.prefilled);
+
+    for (let i = 0; i < cfg.seq.length; i++) {
+      const delayMs = offsetMs + i * stepMs;
+      const delay   = firstRender ? `${delayMs / 1000}s` : '0s';
+
+      if (isRowComplete) {
+        swRow.appendChild(makeSw(cfg.seq[i], 'complete-fill'));
+        continue;
+      }
+
+      /* ── Pre-filled slot (shown from the start) ── */
+      if (prefilled.has(i)) {
+        const el = makeSw(cfg.seq[i], 'filled');
+        const tile = el.querySelector('.tile');
+        if (tile && firstRender) { tile.style.animation = 'switchDrop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both'; tile.style.animationDelay = delay; }
+        swRow.appendChild(el);
+        if (firstRender) setTimeout(() => sfxSwitchAppear(i), delayMs);   /* switch-appear clack */
+        continue;
+      }
+
+      /* ── User-fill slot ── */
+      const userIdx   = userPositions.indexOf(i);
+      const answered  = userIdx < row.length;
+      const isCurrent = userIdx === row.length;
+      const isWrong   = wrongAnswer != null && isCurrent && phase === 'wrong';
+      if (isWrong) {
+        swRow.appendChild(makeSw(wrongAnswer, 'wrong'));
+      } else if (answered) {
+        const isNew = justPlaced && userIdx === row.length - 1;
+        const el = makeSw(row[userIdx], isNew ? 'new' : 'filled');
+        if (isNew) el.style.animationDelay = delay;
+        swRow.appendChild(el);
+      } else {
+        const div = document.createElement('div');
+        div.className = 'sw empty' + (isCurrent ? ' next-slot' : '');
+        if (firstRender) { div.style.animation = 'switchDrop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both'; div.style.animationDelay = delay; }
+        swRow.appendChild(div);
+      }
+    }
+
+    /* ── Options ── */
+    const optArea = document.getElementById('options-area');
+    optArea.innerHTML = '';
+    if (isRowComplete) { optArea.classList.add('invisible'); return; }
+    optArea.classList.remove('invisible', 'reveal', 'hidden-initially');
+    cfg.options.forEach(opt => {
+      const isCorrect      = opt === correct;
+      const isWrongOption  = phase === 'wrong-second' && opt === wrongAnswer;
+      const cls            = isWrongOption ? 'wrong-option'
+                           : showHint && isCorrect ? 'hint'
+                           : 'option';
+      optArea.appendChild(makeSw(opt, cls, isWrongOption ? null : () => handleAnswer(opt)));
+    });
+  }
+
+  /* ── Game flow ─────────────────────────────────── */
+  function buildLevelScreen(cfg) {
+    document.getElementById('level-name').textContent = cfg.label.toUpperCase();
+    const tiles = document.getElementById('level-pattern-tiles');
+    tiles.innerHTML = '';
+    cfg.seq.forEach(num => {
+      const t = document.createElement('div');
+      t.className = 'level-tile';
+      t.textContent = num;
+      tiles.appendChild(t);
+    });
+    const dots = document.createElement('div');
+    dots.className = 'level-tile-dots';
+    dots.textContent = '···';
+    tiles.appendChild(dots);
+
+    if (levelTimer) clearTimeout(levelTimer);
+    levelTimer = setTimeout(handleLevelStart, 2500);
+  }
+
+  function handleStart() {
+    /* unlock the Web Audio context on this user gesture so timed SFX can play later */
+    try { const c = ac(); if (c.state === 'suspended') c.resume(); } catch (e) {}
+    sfxClick();   /* audible PLAY press (context is now unlocked by this gesture) */
+    /* blast doors close over the title, then the gameplay entrance begins behind them */
+    playTransition(() => { handleLevelStart(); });
+  }
+
+  function handleLevelStart() {
+    phase = 'question';
+    showScreen('question');
+
+    /* playful one-by-one entrance: robot → bar → power → pipes → box → switches */
+    const sq = document.getElementById('screen-question');
+    sq.classList.remove('intro');
+    void sq.offsetWidth;
+    sq.classList.add('intro');
+    setTimeout(() => sq.classList.remove('intro'), 3950);
+
+    /* one-by-one blips: robot, then (after the box) the blue pipe + red power together */
+    setTimeout(() => sfxPop(620), 150);   /* robot       */
+    setTimeout(() => sfxPop(660), 2950);  /* blue pipe   */
+    setTimeout(() => sfxPop(780), 2990);  /* red power   */
+
+    /* reset the top-left character (Byte dances on a completed level) */
+    document.getElementById('byte-dance').classList.remove('show');
+    document.getElementById('qrobot').style.opacity = '';
+    resetHint();   /* bulb dim, no hop arrows at the start of the level */
+    document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
+
+    /* the bot bar stays hidden until everything else has appeared */
+    const botBar = document.getElementById('bot-bar');
+    botBar.classList.remove('bar-reveal');
+    botBar.classList.add('bar-hidden');
+
+    firstRender = true; renderQuestion(); firstRender = false;
+
+    /* robot + bar first, THEN the main box opens, THEN its blue pipe + red power button */
+    const panelEl = document.getElementById('main-panel');
+    panelEl.classList.remove('opening');
+    void panelEl.offsetWidth;
+    panelEl.classList.add('opening');
+    setTimeout(sfxPanelOpen, 1000);
+
+    /* keep the whole options box + its link pipes tucked away until every
+       switch has appeared — then deploy them out of the main panel */
+    const optArea = document.getElementById('options-area');
+    const optBox  = document.getElementById('options-box');
+    const pipes   = document.querySelectorAll('.opt-pipe');
+    optBox.classList.remove('deploy', 'retract');  optBox.classList.add('hidden-initially');
+    optArea.classList.remove('reveal'); optArea.classList.add('hidden-initially');
+    pipes.forEach(p => { p.classList.remove('extend', 'retract'); p.classList.add('hidden-initially'); });
+
+    const unlockDelay = SWITCH_OFFSET_MS + (TOTAL - 1) * SWITCH_STEP_MS + 700;
+    setTimeout(() => {
+      /* 1 — pipes shoot down out of the panel */
+      pipes.forEach(p => {
+        p.classList.remove('hidden-initially');
+        void p.offsetWidth;
+        p.classList.add('extend');
+      });
+      /* 2 — the (empty) option box deploys out of the panel, with the whoosh */
+      setTimeout(() => {
+        sfxDeploy();
+        optBox.classList.remove('hidden-initially');
+        void optBox.offsetWidth;
+        optBox.classList.add('deploy');
+      }, 560);
+      /* 3 — once the box is in place, the option switches pop in one by one */
+      setTimeout(() => {
+        optArea.classList.remove('hidden-initially');
+        void optArea.offsetWidth;
+        optArea.classList.add('reveal');
+        sfxPop(700);   /* single pop — all four options appear together */
+        setTimeout(() => optArea.classList.remove('reveal'), 1400);
+
+        /* 4 — finally the text box slides in, THEN the bot speaks */
+        setTimeout(() => {
+          botBar.classList.remove('bar-hidden');
+          void botBar.offsetWidth;
+          botBar.classList.add('bar-reveal');
+          /* bulb appears with the bar: fade in (hb-hidden removed) + a pop-in bounce */
+          const _hb = document.getElementById('hint-btn');
+          _hb.classList.remove('hb-hidden', 'hb-reveal');
+          void _hb.offsetWidth;
+          _hb.classList.add('hb-reveal');
+          sfxBarOpen();
+          setTimeout(() => {
+            /* direct gameplay — no tutorial; every level just prompts the tap */
+            queueBotText('Tap the correct switch.', voiceTapCorrect);
+          }, 450);
+        }, 750);
+      }, 560 + 1400);   /* after the box-deploy animation (1.4s) finishes */
+    }, unlockDelay);
+  }
+
+  /* Levels after the tutorial: the chrome stays on screen — only the new switches
+     refresh and the option placeholder animates back in (no level screen, no re-entrance). */
+  function loadLevelInPlace() {
+    if (timer) clearTimeout(timer);
+    phase = 'question';
+
+    /* drop the previous level's spoken line and show the fresh instruction right away,
+       so when the blast doors open the bar already reads "Tap the correct switch." */
+    clearVoiceQueue();
+    stopConfetti();
+    document.getElementById('bot-text').textContent = 'Tap the correct switch.';
+
+    /* clear the previous level's completion state — everything else stays put */
+    const sq = document.getElementById('screen-question');
+    sq.classList.remove('current-on', 'celebrating', 'intro');
+    const panel = document.getElementById('main-panel');
+    panel.classList.remove('row-complete', 'well-done-active', 'opening');
+    document.getElementById('panel-frame').src = 'assets/figma/panel.svg';
+    document.getElementById('well-done-msg').classList.add('hidden');
+    document.getElementById('byte-dance').classList.remove('show');
+    document.getElementById('qrobot').style.opacity = '';
+    resetHint();   /* clear any bulb glow / hop arrows from the previous level */
+    document.getElementById('hint-btn').classList.remove('hb-hidden');   /* bulb stays (chrome persists) */
+    const botBar = document.getElementById('bot-bar');
+    botBar.classList.remove('bar-hidden');     /* the text bar stays */
+    botBar.style.visibility = 'visible';
+
+    /* the new level's switches just appear (chrome already in place — no cascade) */
+    firstRender = false; renderQuestion();
+
+    /* hide the option box + pipes, then deploy ONLY them with animation */
+    const optArea = document.getElementById('options-area');
+    const optBox  = document.getElementById('options-box');
+    const pipes   = document.querySelectorAll('.opt-pipe');
+    optBox.classList.remove('deploy', 'retract'); optBox.classList.add('hidden-initially');
+    optArea.classList.remove('reveal'); optArea.classList.add('hidden-initially');
+    pipes.forEach(p => { p.classList.remove('extend', 'retract'); p.classList.add('hidden-initially'); });
+
+    setTimeout(() => {
+      pipes.forEach(p => { p.classList.remove('hidden-initially'); void p.offsetWidth; p.classList.add('extend'); });
+      setTimeout(() => {
+        sfxDeploy();
+        optBox.classList.remove('hidden-initially'); void optBox.offsetWidth; optBox.classList.add('deploy');
+      }, 560);
+      setTimeout(() => {
+        optArea.classList.remove('hidden-initially'); void optArea.offsetWidth; optArea.classList.add('reveal');
+        sfxPop(700);
+        setTimeout(() => optArea.classList.remove('reveal'), 1400);
+      }, 560 + 1400);
+    }, 1150);   /* wait for the blast doors to open before deploying the options */
+  }
+
+  function handleAnswer(val) {
+    if (phase !== 'question' && phase !== 'hint') return;
+    if (timer) clearTimeout(timer);
+
+    const cfg     = ROWS_CONFIG[currentRow];
+    const correct = getCorrect(cfg, grid[currentRow].length);
+
+    if (val === correct) {
+      playNumberVoice(val);   /* speak the number if a voice clip exists for it */
+      const pts   = showHint ? 5 : wrongCount === 0 ? 15 : 10;
+      wrongCount  = 0; wrongAnswer = null; showHint = false;
+      resetHint();   /* clear bulb glow + hop arrows now that this slot is solved */
+      streak++; score += pts;
+      grid[currentRow] = [...grid[currentRow], val];
+
+      if (grid[currentRow].length >= getUserPositions(cfg).length) {
+        _setOptionsLock(true);
+        sfxCorrect();
+        phase = 'question';
+        justPlaced = true; renderQuestion(); justPlaced = false;
+        sfxRowComplete();
+        setTimeout(sfxCurrentFlow, 230);   /* electric surge as the current flows (after the correct chime) */
+        fireConfetti();                    /* themed energy-burst confetti to celebrate the fixed pattern */
+
+        /* the option placeholder retracts back up into the panel */
+        const _ob = document.getElementById('options-box');
+        _ob.classList.remove('deploy'); void _ob.offsetWidth; _ob.classList.add('retract');
+        document.querySelectorAll('.opt-pipe').forEach(p => { p.classList.remove('extend'); p.classList.add('retract'); });
+
+        /* Byte dances in the top-left to celebrate */
+        document.getElementById('qrobot').style.opacity = '0';
+        document.getElementById('byte-dance').classList.add('show');
+
+        const isLast = currentRow + 1 >= ROWS_CONFIG.length;
+        const advance = () => {
+          timer = setTimeout(() => {
+            if (isLast) {
+              playTransition(() => { showScreen('complete'); playEndVideo(); });
+            } else {
+              /* blast-door transition, then the next level loads in place (only options animate) */
+              playTransition(() => { currentRow++; loadLevelInPlace(); });
+            }
+          }, 700);
+        };
+
+        const winLines = [
+          'Good job! You fixed these switches.',
+          'Wuhoo! The switches are fixed.',
+          'Well done! All the switches are fixed.'
+        ];
+        queueBotText(winLines[Math.floor(Math.random() * winLines.length)], null, advance);
+      } else {
+        sfxCorrect();
+        phase = 'question';
+        justPlaced = true; renderQuestion(); justPlaced = false;
+      }
+    } else {
+      sfxWrong();
+      queueBotText('Uh-oh! Try again!', voiceUhOh);
+      wrongAnswer = val; streak = 0; wrongCount++;
+      if (wrongCount >= 2) {
+        /* second wrong: mark it, then GLOW the hint bulb — the player taps it for the hint */
+        phase = 'wrong-second';
+        renderQuestion();
+        spawnSparks(document.querySelector('#options-area .sw.wrong-option .tile'));
+        timer = setTimeout(() => {
+          wrongAnswer = null; phase = 'question';
+          if (!showHint) {
+            armHint();
+            if (wrongCount === 2) queueBotText('Check the pattern again.', voiceHint);
+          }
+          renderQuestion();
+        }, 800);
+      } else {
+        phase = 'wrong';
+        renderQuestion();
+        spawnSparks(document.querySelector('#switch-row .sw.wrong .tile'));
+        timer = setTimeout(() => {
+          wrongAnswer = null; phase = 'question';
+          renderQuestion();
+          queueBotText('Tap the correct switch.', voiceTapCorrect);
+        }, 1400);
+      }
+    }
+  }
+
+  /* ── Confetti: a themed burst of glowing energy shards, sparks & bolts ── */
+  let _confettiRAF = null;
+  let _confettiLast = 0;
+  const CONFETTI_COLORS = ['#0ce4f9', '#7ff6ff', '#c9f9fe', '#5dff9b', '#23e070', '#ffffff'];
+
+  function _rrect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /* a little filled lightning bolt centred on (0,0), height ~s */
+  function _bolt(ctx, s) {
+    const p = [[0.18, -0.5], [-0.28, 0.08], [-0.02, 0.08], [-0.18, 0.5], [0.30, -0.10], [0.04, -0.10]];
+    ctx.beginPath();
+    ctx.moveTo(p[0][0] * s, p[0][1] * s);
+    for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0] * s, p[i][1] * s);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function fireConfetti() {
+    const canvas = document.getElementById('fx-confetti');
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    const W = 1920, H = 1080;
+    if (canvas.width !== W) { canvas.width = W; canvas.height = H; }
+    const parts = [];
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    function emit(x, y, n, angle, spread, sMin, sMax) {
+      for (let i = 0; i < n; i++) {
+        const ang = angle + rand(-spread / 2, spread / 2);
+        const sp = rand(sMin, sMax);
+        const r = Math.random();
+        const shape = r < 0.18 ? 'bolt' : r < 0.40 ? 'spark' : 'shard';
+        parts.push({
+          x, y,
+          vx: Math.cos(ang) * sp,
+          vy: Math.sin(ang) * sp,
+          g: rand(0.30, 0.46),
+          drag: rand(0.984, 0.992),
+          col: pick(CONFETTI_COLORS),
+          shape,
+          len: shape === 'shard' ? rand(16, 32) : shape === 'bolt' ? rand(20, 34) : rand(3, 6),
+          w: rand(5, 9),
+          rot: rand(0, Math.PI * 2),
+          vr: rand(-0.34, 0.34),
+          life: 0, max: rand(95, 150),
+          flutter: rand(0.03, 0.07),
+          phase: rand(0, Math.PI * 2),
+        });
+      }
+    }
+
+    /* burst out of the power button (the energy that just switched on) … */
+    emit(1786, 121, 70, Math.PI / 2, Math.PI * 1.7, 9, 22);
+    /* … plus two side cannons firing up & inward for a celebratory fill */
+    emit(150, 1080, 80, -Math.PI / 2 + 0.42, 0.7, 27, 41);
+    emit(1770, 1080, 80, -Math.PI / 2 - 0.42, 0.7, 27, 41);
+    /* a softer secondary pop from the panel a moment later */
+    setTimeout(() => { if (_confettiRAF) emit(859, 360, 50, -Math.PI / 2, Math.PI * 1.2, 12, 26); }, 260);
+
+    function draw(p, alpha) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.shadowColor = p.col;
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = p.col;
+      if (p.shape === 'shard') {
+        _rrect(ctx, -p.w / 2, -p.len / 2, p.w, p.len, p.w / 2);
+        ctx.fill();
+      } else if (p.shape === 'spark') {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.len, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        _bolt(ctx, p.len);
+      }
+      ctx.restore();
+    }
+
+    if (_confettiRAF) cancelAnimationFrame(_confettiRAF);
+    _confettiLast = 0;
+    function frame(now) {
+      const dt = _confettiLast ? Math.min(2.2, (now - _confettiLast) / 16.67) : 1;
+      _confettiLast = now;
+      ctx.clearRect(0, 0, W, H);
+      let alive = 0;
+      for (const p of parts) {
+        if (p.life >= p.max) continue;
+        alive++;
+        p.life += dt;
+        p.vy += p.g * dt;
+        const d = Math.pow(p.drag, dt);
+        p.vx *= d; p.vy *= d;
+        p.x += (p.vx + Math.sin(p.phase + p.life * p.flutter) * 1.3) * dt;
+        p.y += p.vy * dt;
+        p.rot += p.vr * dt;
+        const t = p.life / p.max;
+        const alpha = t < 0.72 ? 1 : 1 - (t - 0.72) / 0.28;
+        draw(p, alpha);
+      }
+      if (alive > 0) {
+        _confettiRAF = requestAnimationFrame(frame);
+      } else {
+        ctx.clearRect(0, 0, W, H);
+        _confettiRAF = null;
+      }
+    }
+    _confettiRAF = requestAnimationFrame(frame);
+  }
+
+  function stopConfetti() {
+    if (_confettiRAF) { cancelAnimationFrame(_confettiRAF); _confettiRAF = null; }
+    const canvas = document.getElementById('fx-confetti');
+    if (canvas && canvas.getContext) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  /* final screen: play the end video, reveal Play Again when it finishes */
+  function playEndVideo() {
+    const v = document.getElementById('end-video');
+    const btn = document.getElementById('end-play-again');
+    btn.classList.add('hidden');
+    if (!v) return;
+    try { v.currentTime = 0; } catch (e) {}
+    v.onended = () => btn.classList.remove('hidden');
+    const p = v.play();
+    if (p && p.catch) p.catch(() => btn.classList.remove('hidden'));  /* if autoplay is blocked, still offer replay */
+  }
+
+  function resetGame() {
+    if (timer) clearTimeout(timer);
+    if (levelTimer) clearTimeout(levelTimer);
+    clearVoiceQueue();
+    stopConfetti();
+    document.getElementById('transition').classList.add('hidden');
+    document.getElementById('transition').classList.remove('closed');
+    const _ev = document.getElementById('end-video');
+    if (_ev) { try { _ev.pause(); _ev.currentTime = 0; } catch (e) {} }
+    phase = 'intro'; currentRow = 0;
+    wrongCount = 0; wrongAnswer = null;
+    showHint = false; score = 0; streak = 0;
+    resetHint();
+    initGrid();
+    showScreen('intro');
+  }
+
+
+  /* ── Boot: preload every asset behind the loading screen, then start ── */
+  const PRELOAD_ASSETS = [
+    'assets/title screen.webp',
+    'assets/play button.svg',
+    'assets/robot dance.webp',
+    'assets/Red button.webp',
+    'assets/Green button.webp',
+    'assets/background.webp',
+    'assets/figma/robot.webp',
+    'assets/figma/textbox.svg',
+    'assets/figma/panel.svg',
+    'assets/figma/panel-green.svg',
+    'assets/figma/options-box.svg',
+    'assets/figma/connector.webp',
+    'assets/figma/tile.webp',
+    'assets/arrow arc.webp',      /* hint hop: +2 */
+    'assets/arrow arc 3.webp',    /* hint hop: +3 */
+    'assets/arrow arc 2.webp',    /* hint hop: +5 */
+    'assets/hint.svg',           /* hint (bulb) button */
+  ];
+
+  function preloadAssets(onProgress) {
+    let loaded = 0;
+    const total = PRELOAD_ASSETS.length || 1;
+    return Promise.all(PRELOAD_ASSETS.map(src => new Promise(resolve => {
+      const img = new Image();
+      img.onload = img.onerror = () => { loaded++; if (onProgress) onProgress(loaded / total); resolve(); };
+      img.src = src;
+    })));
+  }
+
+  let _booted = false;
+  /* Smooth GSAP attention effects for the title-screen PLAY button */
+  function animatePlayButton() {
+    if (!window.gsap) return;
+    const btn = document.querySelector('.btn-play');
+    if (!btn || btn._gsapInit) return;
+    btn._gsapInit = true;
+    const img = btn.querySelector('img');
+    if (!img) return;
+
+    const DEPTH = 'drop-shadow(0 7px 14px rgba(0,16,32,0.55))';
+    const PERIOD = 1.9;   /* breathing + glow share one rhythm so they pulse together */
+
+    /* gentle breathing — soft sine, no jarring pop */
+    gsap.to(img, {
+      scale: 1.045, duration: PERIOD, repeat: -1, yoyo: true,
+      ease: 'sine.inOut', transformOrigin: '50% 50%'
+    });
+
+    /* shaped neon glow that hugs the octagon (drop-shadow on the SVG), pulsing in sync */
+    const g = { blur: 12, a: 0.4 };
+    const paint = () => {
+      img.style.filter = 'drop-shadow(0 0 ' + g.blur.toFixed(1) + 'px rgba(12,228,249,' +
+                         g.a.toFixed(3) + ')) ' + DEPTH;
+    };
+    paint();
+    gsap.to(g, {
+      blur: 30, a: 0.85, duration: PERIOD, repeat: -1, yoyo: true,
+      ease: 'sine.inOut', onUpdate: paint
+    });
+
+    /* smooth hover / press — all eased through GSAP */
+    const to = (s, d, ease) => gsap.to(btn, { scale: s, duration: d, ease: ease, overwrite: 'auto' });
+    btn.addEventListener('mouseenter',  () => to(1.07, 0.35, 'power3.out'));
+    btn.addEventListener('mouseleave',  () => to(1.00, 0.55, 'power3.out'));
+    btn.addEventListener('mousedown',   () => to(0.94, 0.12, 'power2.out'));
+    btn.addEventListener('mouseup',     () => to(1.07, 0.30, 'power2.out'));
+    btn.addEventListener('touchstart',  () => to(0.94, 0.12, 'power2.out'), { passive: true });
+    btn.addEventListener('touchend',    () => to(1.00, 0.40, 'power2.out'));
+  }
+
+  /* wire hover + press sounds onto the menu buttons (the switch/option tiles already have them) */
+  function wireMenuSfx() {
+    const addHover = (el) => {
+      if (!el || el._hoverSfx) return;
+      el._hoverSfx = true;
+      let cd = false;
+      el.addEventListener('mouseenter', () => {
+        if (cd) return; sfxHover(); cd = true; setTimeout(() => { cd = false; }, 80);
+      });
+    };
+    const play  = document.querySelector('.btn-play');
+    const again = document.getElementById('end-play-again');
+    const hint  = document.getElementById('hint-btn');
+    addHover(play);    /* PLAY: the press sound is played in handleStart() */
+    if (again && !again._pressSfx) {
+      again._pressSfx = true;
+      addHover(again);
+      /* by the end screen the audio context is already unlocked, so the press sounds */
+      again.addEventListener('pointerdown', () => sfxClick());
+    }
+    if (hint && !hint._wired) {
+      hint._wired = true;
+      addHover(hint);
+      hint.addEventListener('click', () => { sfxClick(); revealHint(); });
+    }
+  }
+
+  function startGame() {
+    if (_booted) return;
+    _booted = true;
+    const loader = document.getElementById('loader');
+    if (loader) loader.classList.add('hidden');
+    initGrid();
+    showScreen('intro');
+    animatePlayButton();
+    wireMenuSfx();
+  }
+
+  initGrid();   /* set up game state immediately (cheap) */
+  const _fill = document.getElementById('loader-fill');
+  const _fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+  Promise.race([
+    Promise.all([
+      preloadAssets(p => { if (_fill) _fill.style.width = Math.round(p * 100) + '%'; }),
+      _fontsReady,
+    ]),
+    new Promise(resolve => setTimeout(resolve, 12000)),   /* safety: never hang past 12s */
+  ]).then(startGame);
+</script>
+</body>
+</html>
