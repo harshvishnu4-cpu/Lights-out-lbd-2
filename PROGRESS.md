@@ -102,15 +102,17 @@ panel → option tiles pop in. Each beat has its own sound.
 - **No tutorial:** every level (including the first) just prompts "Tap the correct
   switch." then a randomized win line. The old Level-1 guided narration
   ("let us read the pattern together", option-highlight, `readPatternLvl1`) was removed.
-- On a correct tap the placed number is spoken if an `audio/<n>.ogg` clip exists
-  (`playNumberVoice` — clips present for 3, 4, 5, 7, 10, 11, 13; others silently skip).
+- On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
+  Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
+  covers every correct answer across all four levels; any unmapped number silently skips.
 
 ### Audio (all synthesized via Web Audio API; master gain + compressor)
 hover, click, correct, wrong, row-complete, entrance pops, panel power-on, options
 deploy whoosh, power-down/up (transition), bot-bar open/close, switch-appear,
-talk blips, the **current-flow surge**, and **menu-button hover/press** (PLAY and Play
-Again now click like the switch/option tiles). Optional number-voice `.ogg` files are
-referenced and degrade gracefully if missing.
+**switch-flip-ON for a correct pick (`sfxSwitchOn` — clunk + upward toggle + electric
+spark)**, talk blips, the **current-flow surge**, and **menu-button hover/press** (PLAY
+and Play Again click like the tiles). Optional number-voice `.ogg` files are referenced
+and degrade gracefully if missing.
 
 ---
 

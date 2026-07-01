@@ -1132,16 +1132,10 @@
   const voiceUhOh       = new Audio('audio/Uh-oh! Try again!.ogg');
   const voiceHint       = new Audio("audio/Check the pattern again.ogg");
 
-  /* ── Spoken-number clips (only the numbers we have .ogg files for) ── */
-  const NUMBER_VOICES = {
-    3:  new Audio('audio/3.ogg'),
-    4:  new Audio('audio/4.ogg'),
-    5:  new Audio('audio/5.ogg'),
-    7:  new Audio('audio/7.ogg'),
-    10: new Audio('audio/10.ogg'),
-    11: new Audio('audio/11.ogg'),
-    13: new Audio('audio/13.ogg'),
-  };
+  /* ── Spoken-number clips (all the numbers we have audio/<n>.ogg files for) ── */
+  const NUMBER_VOICE_FILES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 25, 30, 35];
+  const NUMBER_VOICES = {};
+  NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = new Audio('audio/' + n + '.ogg'); });
 
   /* speak a number when the player places it (silently skips numbers with no clip) */
   function playNumberVoice(n) {
@@ -1346,6 +1340,40 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
     o.connect(g); g.connect(masterGain());
     o.start(t0); o.stop(t0 + 0.22);
+  }
+
+  /* switch flips ON — a mechanical toggle for a correct pick: clunk + upward flip + electric spark */
+  function sfxSwitchOn() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    /* 1 — mechanical "clunk" (short filtered noise burst, the toggle snapping) */
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.045, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let k = 0; k < d.length; k++) d[k] = (Math.random() * 2 - 1) * Math.exp(-k / (ctx.sampleRate * 0.005));
+    const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), cg = ctx.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.9;
+    cg.gain.value = 0.5;
+    src.connect(bp); bp.connect(cg); cg.connect(masterGain());
+    src.start(t0);
+    /* 2 — upward "flip to ON" tone (square osc snapping up) */
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(300, t0);
+    o.frequency.exponentialRampToValueAtTime(760, t0 + 0.05);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.085, t0 + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    o.connect(g); g.connect(masterGain());
+    o.start(t0); o.stop(t0 + 0.18);
+    /* 3 — bright electric spark tail (the "light" coming on) */
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'triangle';
+    o2.frequency.setValueAtTime(1500, t0 + 0.04);
+    o2.frequency.exponentialRampToValueAtTime(2700, t0 + 0.12);
+    g2.gain.setValueAtTime(0.0001, t0 + 0.04);
+    g2.gain.exponentialRampToValueAtTime(0.05, t0 + 0.07);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    o2.connect(g2); g2.connect(masterGain());
+    o2.start(t0 + 0.04); o2.stop(t0 + 0.22);
   }
 
   /* bot bar slides open — rising sweep + a soft confirm chime */
@@ -2117,6 +2145,7 @@
     const correct = getCorrect(cfg, grid[currentRow].length);
 
     if (val === correct) {
+      sfxSwitchOn();          /* the switch flips ON for a correct pick */
       playNumberVoice(val);   /* speak the number if a voice clip exists for it */
       const pts   = showHint ? 5 : wrongCount === 0 ? 15 : 10;
       wrongCount  = 0; wrongAnswer = null; showHint = false;
