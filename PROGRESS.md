@@ -42,17 +42,19 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
 ---
 
 ## Game mechanics
-- **Levels** (`ROWS_CONFIG`): 4 levels, each a **7-slot skip-counting sequence**.
+- **Levels** (`ROWS_CONFIG`): 4 levels, each an **8-slot skip-counting sequence**
+  (5 prefilled + 3 to fill). The distractor is the "next" number just past the sequence.
   | Level | Sequence | Player fills | Options (distractor) |
   |---|---|---|---|
-  | 1 | 2 4 6 8 10 12 14 | 10, 12, 14 | 12 10 16 14 (16) |
-  | 2 | 3 6 9 12 15 18 21 | 15, 18, 21 | 21 24 18 15 (24) |
-  | 3 | 5 10 15 20 25 30 35 | 20, 30, 35 | 16 20 35 30 (16) — **gap**: 25 prefilled, 20 empty |
-  | 4 | 1 3 5 7 9 11 13 | 7, 11, 13 | 13 6 7 11 (6) — **gap**: 9 prefilled, 7 empty |
-- Each level = `seq` (the 7 numbers) + `prefilled` (slot indices shown at start) +
-  `options` (4 tiles, one a distractor). `TOTAL = 7`. The player taps the correct
+  | 1 | 2 4 6 8 10 12 14 16 | 12, 14, 16 | 16 12 18 14 (18) |
+  | 2 | 3 6 9 12 15 18 21 24 | 18, 21, 24 | 24 18 27 21 (27) |
+  | 3 | 5 10 15 20 25 30 35 40 | 25, 30, 35 | 35 25 45 30 (45) — **gap**: 40 prefilled at the end, slots 4–6 empty |
+  | 4 | 1 3 5 7 9 11 13 15 | 11, 13, 15 | 15 11 17 13 (17) |
+- Each level = `seq` (the 8 numbers) + `prefilled` (slot indices shown at start) +
+  `options` (4 tiles, one a distractor). `TOTAL = 8`. The player taps the correct
   option to fill the non-prefilled slots **in order**; the same render path handles
-  both consecutive (levels 1–2) and gapped (levels 3–4) layouts.
+  both consecutive (levels 1, 2, 4) and gapped (level 3) layouts. Every fill value has an
+  `audio/<n>.ogg` clip so each correct pick is spoken.
 - **Scoring:** 15 (first try) / 10 (after a wrong try) / 5 (after a hint).
 - **Wrong answer:** shake + red glow pulse + spark burst on the wrong switch; the
   vent bars flash red.
@@ -99,9 +101,11 @@ panel → option tiles pop in. Each beat has its own sound.
 ### Dialogue
 - Bot lines **typewriter** out with soft talk blips; options lock while the bot
   "speaks". Instruction is spoken right when the switches finish appearing.
-- **No tutorial:** every level (including the first) just prompts "Tap the correct
-  switch." then a randomized win line. The old Level-1 guided narration
-  ("let us read the pattern together", option-highlight, `readPatternLvl1`) was removed.
+- **Level 1 tutorial:** on the first level the bot narrates "Let us start fixing the
+  switches." → "These switches are in a pattern." → "Let us read the pattern together.",
+  then `readPattern` highlights each prefilled switch left-to-right and speaks its number
+  (`read-pop` + `NUMBER_VOICES`), and finally prompts "Tap the correct switch." Levels 2–4
+  skip straight to the prompt.
 - On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
   Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
   covers every correct answer across all four levels; any unmapped number silently skips.

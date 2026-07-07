@@ -1013,10 +1013,10 @@
     <div id="qrobot"><img src="assets/figma/robot.webp" alt="robot" /></div>
     <img id="byte-dance" src="assets/robot dance.webp" alt="" />
 
-    <!-- Top text bar -->
+    <!-- Top text bar (starts empty; text is typed in by the dialogue queue) -->
     <div id="bot-bar">
       <img class="frame" src="assets/figma/textbox.svg" alt="" />
-      <span id="bot-text">Tap the correct switch.</span>
+      <span id="bot-text"></span>
     </div>
 
     <!-- Power button (top-right) -->
@@ -1143,6 +1143,30 @@
     if (!snd) return;
     snd.currentTime = 0;
     snd.play().catch(() => {});
+  }
+
+  /* Tutorial "read the pattern together": highlight each prefilled switch in turn and
+     speak its number, left to right. Calls done() when finished. */
+  function readPattern(cfg, done) {
+    const tiles = document.querySelectorAll('#switch-row .sw.filled');
+    const pre = cfg.prefilled.slice().sort((a, b) => a - b);   /* slot indices, in DOM order */
+    let i = 0;
+    function next() {
+      if (i >= tiles.length) { setTimeout(done, 350); return; }
+      const t = tiles[i];
+      const val = cfg.seq[pre[i]];
+      const snd = NUMBER_VOICES[val];
+      if (t) { t.classList.remove('read-pop'); void t.offsetWidth; t.classList.add('read-pop'); }
+      i++;
+      if (snd) {
+        snd.onended = () => { snd.onended = null; setTimeout(next, 180); };
+        snd.currentTime = 0;
+        snd.play().catch(() => { snd.onended = null; setTimeout(next, 650); });
+      } else {
+        setTimeout(next, 650);   /* no clip for this number → just hold on the highlight */
+      }
+    }
+    next();
   }
 
   let _voicePlaying = false;
@@ -1655,16 +1679,17 @@
   setTimeout(scaleCanvas, 300);
 
   /* ── Game config ───────────────────────────────── */
-  /* Each level is a 7-slot skip-counting sequence. `prefilled` lists the slot indices
-     shown from the start; the player fills the remaining slots (in order) by tapping the
-     correct option. `options` are the 4 tiles shown below (one is a distractor). */
+  /* Each level is an 8-slot skip-counting sequence. `prefilled` lists the slot indices
+     shown from the start (5 of them); the player fills the remaining 3 (in order) by
+     tapping the correct option. `options` are the 4 tiles shown below (one distractor —
+     the "next" number beyond the sequence). Every fill value has an audio/<n>.ogg clip. */
   const ROWS_CONFIG = [
-    { seq: [2, 4, 6, 8, 10, 12, 14],   prefilled: [0, 1, 2, 3], options: [12, 10, 16, 14], label: 'Level 1' },
-    { seq: [3, 6, 9, 12, 15, 18, 21],  prefilled: [0, 1, 2, 3], options: [21, 24, 18, 15], label: 'Level 2' },
-    { seq: [5, 10, 15, 20, 25, 30, 35], prefilled: [0, 1, 2, 4], options: [16, 20, 35, 30], label: 'Level 3' },
-    { seq: [1, 3, 5, 7, 9, 11, 13],    prefilled: [0, 1, 2, 4], options: [13, 6, 7, 11], label: 'Level 4' },
+    { seq: [2, 4, 6, 8, 10, 12, 14, 16],   prefilled: [0, 1, 2, 3, 4], options: [16, 12, 18, 14], label: 'Level 1' },
+    { seq: [3, 6, 9, 12, 15, 18, 21, 24],  prefilled: [0, 1, 2, 3, 4], options: [24, 18, 27, 21], label: 'Level 2' },
+    { seq: [5, 10, 15, 20, 25, 30, 35, 40], prefilled: [0, 1, 2, 3, 7], options: [35, 25, 45, 30], label: 'Level 3' },
+    { seq: [1, 3, 5, 7, 9, 11, 13, 15],    prefilled: [0, 1, 2, 3, 4], options: [15, 11, 17, 13], label: 'Level 4' },
   ];
-  const TOTAL = 7;
+  const TOTAL = 8;
   const SWITCH_OFFSET_MS = 3850;   /* wait for the box to open + the pipe & power to appear */
   const SWITCH_STEP_MS   = 340;    /* gap between each switch dropping in */
 
@@ -2019,7 +2044,9 @@
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
-    /* the bot bar stays hidden until everything else has appeared */
+    /* the bot bar stays hidden until everything else has appeared (start it empty so no
+       stale line flashes when it reveals — the tutorial/prompt is typed in afterwards) */
+    document.getElementById('bot-text').textContent = '';
     const botBar = document.getElementById('bot-bar');
     botBar.classList.remove('bar-reveal');
     botBar.classList.add('bar-hidden');
@@ -2077,8 +2104,16 @@
           _hb.classList.add('hb-reveal');
           sfxBarOpen();
           setTimeout(() => {
-            /* direct gameplay — no tutorial; every level just prompts the tap */
-            queueBotText('Tap the correct switch.', voiceTapCorrect);
+            if (currentRow === 0) {
+              /* Level 1 — guided tutorial: narrate, read the pattern aloud, then prompt */
+              queueBotText('Let us start fixing the switches.');
+              queueBotText('These switches are in a pattern.');
+              queueBotText('Let us read the pattern together.');
+              queueAction((done) => readPattern(ROWS_CONFIG[0], done));
+              queueBotText('Tap the correct switch.', voiceTapCorrect);
+            } else {
+              queueBotText('Tap the correct switch.', voiceTapCorrect);
+            }
           }, 450);
         }, 750);
       }, 560 + 1400);   /* after the box-deploy animation (1.4s) finishes */
