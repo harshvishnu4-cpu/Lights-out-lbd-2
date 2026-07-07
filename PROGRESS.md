@@ -101,11 +101,20 @@ panel → option tiles pop in. Each beat has its own sound.
 ### Dialogue
 - Bot lines **typewriter** out with soft talk blips; options lock while the bot
   "speaks". Instruction is spoken right when the switches finish appearing.
-- **Level 1 tutorial:** on the first level the bot narrates "Let us start fixing the
-  switches." → "These switches are in a pattern." → "Let us read the pattern together.",
-  then `readPattern` highlights each prefilled switch left-to-right and speaks its number
-  (`read-pop` + `NUMBER_VOICES`), and finally prompts "Tap the correct switch." Levels 2–4
-  skip straight to the prompt.
+- **Level 1 is a full guided tutorial** (levels 2–4 skip straight to "Tap the correct
+  switch."). The choreography:
+  1. "Let us start fixing the switches." → "These switches are in a pattern." → "Let us
+     read the pattern together." — `readPattern` highlights each prefilled switch
+     left-to-right and speaks its number (`read-pop` + `NUMBER_VOICES`: 2, 4, 6, 8, 10).
+  2. "We are adding 2 at each step." — the `+2` hop arrows over the read pattern
+     (`revealArrowsSeq(0,3)`) pop in **one by one**.
+  3. "We keep adding the same number!" — `glowArrows(0,3)` makes them **pulse together**.
+  4. "Tap the correct switch to continue the pattern." — the answer-slot arrows are **not**
+     shown yet. Each `+2` arrow **proceeds onto the slot the player just filled**, one per
+     correct pick (`tutorialAdvanceArrow` in `handleAnswer`), so the arrow advances across
+     the answers as the pattern is continued.
+  - The tutorial arrows stay up for the whole level (`tutorialArrowsLocked` makes
+    `resetHint` skip clearing them until the level is left).
 - On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
   Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
   covers every correct answer across all four levels; any unmapped number silently skips.
