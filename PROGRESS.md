@@ -33,10 +33,10 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
 ## Screens
 | Screen | Purpose |
 |---|---|
-| `#screen-intro` | Title image + Start button (the tap also unlocks Web Audio) |
+| `#screen-intro` | Title image + **PLAY** button (first launch) OR **Play Again** button (after a completed run). The tap unlocks Web Audio + starts BGM. |
 | `#screen-level` | Level intro markup (currently **unused** — Start goes straight to gameplay) |
 | `#screen-question` | Main gameplay |
-| `#screen-complete` | End screen: all 4 completed patterns + Play Again |
+| `#screen-complete` | Just the completion **video**; when it ends the game returns to the title and reveals **Play Again** (`goToTitleWithPlayAgain`) |
 | `#transition` | Sci‑fi **blast-door** transition between levels |
 
 ---
@@ -56,15 +56,19 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
   both consecutive (levels 1, 2, 4) and gapped (level 3) layouts. Every fill value has an
   `audio/<n>.ogg` clip so each correct pick is spoken.
 - **Scoring:** 15 (first try) / 10 (after a wrong try) / 5 (after a hint).
-- **Wrong answer:** shake + red glow pulse + spark burst on the wrong switch; the
-  vent bars flash red.
+- **Wrong answer:** feedback shows **only on the tapped option** — gentle shake + **amber**
+  glow pulse + amber spark burst + a soft SFX. The wrong number is **not** placed in a slot
+  and the switch panel doesn't react (no vent flash, no panel shake), and **no spoken line
+  is replayed** (the bot text stays put) so the player can immediately try again. After 2
+  wrongs the hint bulb still glows (silently). No red anywhere.
 - **Hint** (Figma `node 1009-2060`): after **2** wrong taps the **bulb button** (right
-  end of the bot bar) glows (`armed`). Tapping it reveals the *hint screen*: the
-  pattern step shown as **"+N" hop arrows** above every switch pair, plus the correct
-  option glowing. The bulb then dims (`used`); it re-arms if the player gets stuck on a
-  later slot. Hint state resets on each new slot / level / restart (`resetHint`).
-  - Art is **picked from `assets/`**: the bulb button is `assets/hint.svg` (navy circle +
-    cyan border + bulb icon, per Figma), and the hop-arrow step is baked into each PNG:
+  end of the bot bar) turns **bright yellow and pulses** (`armed` → `hintBtnPulse`: scale +
+  yellow glow) to grab focus. Tapping it reveals the *hint screen*: the pattern step shown
+  as **"+N" hop arrows** above every switch pair, plus the correct option glowing. The bulb
+  then dims (`used`); it re-arms if the player gets stuck on a later slot. Hint state resets
+  on each new slot / level / restart (`resetHint`).
+  - Art is **picked from `assets/`**: the bulb button is `assets/hint-yellow.svg` (yellow
+    bulb + border), and the hop-arrow step is baked into each PNG:
     `arrow arc.png` = +2, `arrow arc 3.png` = +3, `arrow arc 2.png` = +5 — mapped to the
     level step in `HINT_ARROW_SRC`. Arrows are sized/positioned in JS (`buildHintArrows` /
     `switchCenterX`) to sit centred over the switch gaps and fit the band above the switches.
@@ -115,6 +119,10 @@ panel → option tiles pop in. Each beat has its own sound.
      the answers as the pattern is continued.
   - The tutorial arrows stay up for the whole level (`tutorialArrowsLocked` makes
     `resetHint` skip clearing them until the level is left).
+  5. A **hand nudge** (`assets/nudge.webp`, a tapping hand) points at the option the player
+     should tap (`showNudgeAtOption`), bobbing with a `handTap` animation. It appears once
+     the tutorial prompt is reached and **follows to the next correct option** after each
+     pick (12 → 14 → 16), then hides when the level is solved. Level 1 only.
 - On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
   Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
   covers every correct answer across all four levels; any unmapped number silently skips.
@@ -124,8 +132,14 @@ hover, click, correct, wrong, row-complete, entrance pops, panel power-on, optio
 deploy whoosh, power-down/up (transition), bot-bar open/close, switch-appear,
 **switch-flip-ON for a correct pick (`sfxSwitchOn` — clunk + upward toggle + electric
 spark)**, talk blips, the **current-flow surge**, and **menu-button hover/press** (PLAY
-and Play Again click like the tiles). Optional number-voice `.ogg` files are referenced
-and degrade gracefully if missing.
+and Play Again click like the tiles). The wrong-answer SFX is a **soft two-note triangle
+"aw"** (not a harsh buzz). Optional number-voice `.ogg` files are referenced and degrade
+gracefully if missing.
+- **Background music** (`startMusic`/`pauseMusic`, `MUSIC_VOL`): a quiet synth ambient bed
+  — a detuned pad drifting through a calm 4-chord loop (A→F#m→D→E) with sparse
+  A-pentatonic "bloops" over it. Starts on the first Play tap (audio-unlock gesture),
+  loops throughout gameplay, and pauses while the end video plays (so its own audio isn't
+  doubled). Balanced low so it sits under the SFX; tune with the `MUSIC_VOL` constant.
 
 ---
 
@@ -138,10 +152,12 @@ originals have been removed (converted 2026-07-01 via `sharp` + `ffmpeg-static`;
 - `assets/figma/` — `robot.webp`, `connector.webp` (pipes), `tile.webp`,
   `panel.svg`, `panel-green.svg` (success), `options-box.svg`, `textbox.svg`.
 - `assets/` — `Red button.webp`, `Green button.webp`, `robot dance.webp` (animated),
-  `title screen.webp` (3D title art), `play button.svg` (title-screen **PLAY** button),
-  `hint.svg` (hint bulb button), `arrow arc.webp` / `arrow arc 2.webp` / `arrow arc 3.webp`
-  (hint "+N" hops), `end-video.webm` (completion video). The end-screen **Play Again**
-  button is built in CSS (themed chamfered cyan plate to match).
+  `title screen.webp` ("LIGHTS OUT!" title art), `play button.svg` (title-screen **PLAY**
+  button — a bold GSAP breathing pulse; a **spark burst** fires from it on tap, then the
+  blast-door transition starts the game), `hint-yellow.svg` (yellow hint bulb button),
+  `nudge.webp` (tutorial hand), `arrow arc.webp` / `arrow arc 2.webp` / `arrow arc 3.webp`
+  (hint "+N" hops), `end-video.webm` (completion video), `play again.svg` (the **Play Again**
+  button shown on the title screen after a completed run — same pulse + click-spark as PLAY).
 - SVGs are kept as vectors (converting them to WebP would rasterize and lose crispness).
 - `audio/` — number/voice `.ogg` clips are referenced by name but **not currently
   present**; the game runs fine without them (synth SFX cover everything).

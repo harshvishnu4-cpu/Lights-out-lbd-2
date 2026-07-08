@@ -211,8 +211,8 @@
       box-shadow: 0 0 13px rgba(43,255,122,.95), inset 0 0 4px rgba(255,255,255,.4);
     }
     #main-panel.vent-wrong .vent-bar {
-      background: #ff3b3b;
-      box-shadow: 0 0 13px rgba(255,59,59,.95), inset 0 0 4px rgba(255,255,255,.4);
+      background: #ffab2e;   /* gentle amber for a wrong answer (no red) */
+      box-shadow: 0 0 13px rgba(255,171,46,.95), inset 0 0 4px rgba(255,255,255,.4);
     }
     #main-panel.row-complete .vent-bar { display: none; }
 
@@ -306,15 +306,15 @@
     }
 
     @keyframes wrongGlowPulse {
-      0%   { box-shadow: 0 0 0 0 rgba(255,40,40,0);          outline-color: rgba(255,70,70,.35); }
-      16%  { box-shadow: 0 0 34px 12px rgba(255,45,45,.98), 0 0 68px 26px rgba(255,0,0,.55); outline-color: #ff5050; }
-      100% { box-shadow: 0 0 18px 4px rgba(255,45,45,.7);   outline-color: #ff3333; }
+      0%   { box-shadow: 0 0 0 0 rgba(255,171,46,0);           outline-color: rgba(255,190,90,.35); }
+      16%  { box-shadow: 0 0 34px 12px rgba(255,171,46,.98), 0 0 68px 26px rgba(255,140,20,.55); outline-color: #ffbf5a; }
+      100% { box-shadow: 0 0 18px 4px rgba(255,171,46,.7);    outline-color: #ffab2e; }
     }
     .sw.wrong { animation: shake 0.45s ease; }
     .sw.wrong-option { animation: shake 0.45s ease; }
     .sw.wrong .tile,
     .sw.wrong-option .tile {
-      outline: 3px solid #ff3333;
+      outline: 3px solid #ffab2e;
       border-radius: 8px;
       animation: wrongGlowPulse 0.8s ease-out both;
     }
@@ -545,7 +545,7 @@
     }
     .sw.hint:hover { transform: scale(1.08); }
 
-    /* ── Hint button (bulb, right end of the bot bar) — art from assets/hint.svg ── */
+    /* ── Hint button (yellow bulb, right end of the bot bar) — art from assets/hint-yellow.svg ── */
     #hint-btn {
       position: absolute;
       left: 1541px; top: 62px;
@@ -554,19 +554,28 @@
       background: none; border: none; padding: 0;
       cursor: pointer;
       z-index: 6;
-      opacity: .5;
+      opacity: .62;
       pointer-events: none;   /* inert until armed after 2 wrong taps */
       transition: opacity .45s ease, transform .12s ease;
     }
-    #hint-btn img { display: block; width: 100%; height: 100%; }
-    #hint-btn.armed { opacity: 1; pointer-events: auto; animation: hintBtnGlow 1.1s ease-in-out infinite; }
-    #hint-btn.armed:hover  { transform: scale(1.07); }
-    #hint-btn.armed:active { transform: scale(0.94); }
-    #hint-btn.used { opacity: .4; pointer-events: none; animation: none; }
-    @keyframes hintBtnGlow {
-      0%,100% { box-shadow: 0 0 6px rgba(12,228,249,.5); }
-      50%     { box-shadow: 0 0 26px 6px rgba(12,228,249,.95); }
+    /* the bulb always glows + gently pulses; armed makes it bright and pulse hard */
+    #hint-btn img {
+      display: block; width: 100%; height: 100%;
+      animation: hintIdle 1.8s ease-in-out infinite;
     }
+    @keyframes hintIdle {
+      0%,100% { transform: scale(1);    filter: drop-shadow(0 0 6px  rgba(255,210,63,.7));  }
+      50%     { transform: scale(1.05); filter: drop-shadow(0 0 16px rgba(255,210,63,.95)); }
+    }
+    /* armed after 2 wrong taps: brighter, bigger, faster pulse to grab focus */
+    #hint-btn.armed { opacity: 1; pointer-events: auto; }
+    #hint-btn.armed img { animation: hintArmed 0.8s ease-in-out infinite; }
+    @keyframes hintArmed {
+      0%,100% { transform: scale(1);    filter: drop-shadow(0 0 12px rgba(255,210,63,.9)); }
+      50%     { transform: scale(1.18); filter: drop-shadow(0 0 34px rgba(255,210,63,1)) brightness(1.15); }
+    }
+    #hint-btn.used { opacity: .4; pointer-events: none; }
+    #hint-btn.used img { animation: none; filter: drop-shadow(0 0 5px rgba(255,210,63,.5)); }
     /* stays hidden through the entrance cascade; JS reveals it the moment the bot bar appears */
     #hint-btn.hb-hidden { opacity: 0; pointer-events: none; }
     /* pop-in when it appears with the bar (transform only, so opacity/armed states are untouched) */
@@ -600,6 +609,21 @@
     @keyframes hintArrowGlow {
       0%,100% { filter: drop-shadow(0 0 7px rgba(12,228,249,.85)); }
       50%     { filter: drop-shadow(0 0 20px rgba(12,228,249,1)) brightness(1.25); }
+    }
+
+    /* ── Tutorial hand nudge (points at the option to tap; Level 1 only) ── */
+    #hand-nudge {
+      position: absolute;
+      width: 64px; height: auto;
+      z-index: 7;
+      pointer-events: none;
+      filter: drop-shadow(0 5px 7px rgba(0,0,0,.5));
+      transform-origin: 50% 0%;              /* pivot at the fingertip */
+      animation: handTap 0.95s ease-in-out infinite;
+    }
+    @keyframes handTap {
+      0%,100% { transform: translateY(0)     scale(1);    }
+      50%     { transform: translateY(-16px) scale(0.95); }
     }
 
     /* ════════════════════════════════════════════
@@ -701,6 +725,24 @@
       filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
     }
 
+    /* ── Title-screen PLAY AGAIN button (shown after completion; image asset) ── */
+    #screen-intro #title-play-again {
+      position: absolute;
+      right: 66px; bottom: 74px;
+      z-index: 2;
+    }
+    #title-play-again {
+      background: none; border: none; padding: 0; margin: 0; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      width: 340px; line-height: 0;
+      will-change: transform;
+    }
+    #title-play-again img {
+      width: 340px; height: auto; display: block;
+      will-change: transform, filter;
+      filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
+    }
+
     .overlay {
       position: absolute;
       inset: 0;
@@ -711,76 +753,6 @@
     }
 
     .level-float { animation: float 2s ease-in-out infinite; }
-
-    /* ── Themed sci-fi START button (built in CSS, crisp at any scale) ── */
-    .btn-start {
-      position: relative;
-      width: 300px; height: 92px;
-      border: none; padding: 0; margin: 0; cursor: pointer;
-      background: transparent;
-      font-family: 'Exo 2', sans-serif;
-      -webkit-tap-highlight-color: transparent;
-      filter: drop-shadow(0 6px 14px rgba(0,12,28,.55));
-      transition: transform 0.16s ease;
-      animation: startFloat 3s ease-in-out infinite;
-    }
-    /* chamfered shape shared by every layer */
-    .btn-start::before,
-    .btn-start::after,
-    .btn-start .shine {
-      clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%,
-                         20px 100%, 0 50%);
-    }
-    /* outer bright-cyan rim */
-    .btn-start::before {
-      content: ''; position: absolute; inset: 0;
-      background: linear-gradient(180deg, #d4fbff 0%, #21e6fa 32%, #0aa6cf 62%, #0b4c78 100%);
-      box-shadow: 0 0 26px rgba(12,228,249,.55);
-      animation: startGlow 2.4s ease-in-out infinite;
-    }
-    /* inner glassy blue fill, inset to leave the rim showing */
-    .btn-start::after {
-      content: ''; position: absolute; inset: 4px;
-      background:
-        linear-gradient(180deg, rgba(190,250,255,.55) 0%, rgba(57,110,150,.6) 16%,
-                        #1d4a72 46%, #0c2a48 100%);
-    }
-    /* moving sheen */
-    .btn-start .shine {
-      position: absolute; inset: 0; z-index: 1; pointer-events: none;
-      background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.55) 50%, transparent 62%);
-      background-size: 250% 100%; background-position: 160% 0;
-      animation: startShine 3.4s ease-in-out infinite;
-    }
-    .btn-start .lbl {
-      position: absolute; inset: 0; z-index: 2;
-      display: flex; align-items: center; justify-content: center; gap: 14px;
-      font-size: 38px; font-weight: 800; letter-spacing: 5px;
-      text-transform: uppercase; color: #ffffff;
-      text-shadow: 0 0 12px rgba(12,228,249,.9), 0 2px 3px rgba(0,24,44,.7);
-      padding-left: 4px;   /* optical centering with the letter-spacing */
-    }
-    .btn-start .lbl::before {
-      content: '▶'; font-size: 22px; line-height: 1;
-      color: #eafdff; text-shadow: 0 0 14px rgba(12,228,249,1);
-      transform: translateY(1px);
-    }
-    .btn-start:hover { transform: scale(1.05); }
-    .btn-start:hover::before { filter: brightness(1.12); box-shadow: 0 0 38px rgba(12,228,249,.85); }
-    .btn-start:active { transform: scale(0.97); }
-
-    @keyframes startGlow {
-      0%, 100% { box-shadow: 0 0 18px rgba(12,228,249,.45); }
-      50%      { box-shadow: 0 0 34px rgba(12,228,249,.8); }
-    }
-    @keyframes startFloat {
-      0%, 100% { transform: translateY(0); }
-      50%      { transform: translateY(-6px); }
-    }
-    @keyframes startShine {
-      0%       { background-position: 160% 0; }
-      55%, 100%{ background-position: -60% 0; }
-    }
 
     .hidden { display: none !important; }
 
@@ -976,19 +948,6 @@
       width: 96px; height: 130px;
     }
     .end-row .tile-num { font-size: 58px; }
-
-    /* Play Again reuses the themed .btn-start look (see below), re-sized + repositioned */
-    #end-play-again {
-      position: absolute;
-      bottom: 64px; left: 50%;
-      width: 360px; height: 86px;
-      transform: translateX(-50%);
-      animation: fadeIn 0.5s ease both;   /* no float here; the rim keeps its glow pulse */
-    }
-    #end-play-again .lbl { font-size: 30px; letter-spacing: 3px; padding-left: 0; }
-    #end-play-again .lbl::before { content: '\21BB'; font-size: 28px; transform: translateY(0); }
-    #end-play-again:hover { transform: translateX(-50%) scale(1.04); }
-    #end-play-again:active { transform: translateX(-50%) scale(0.97); }
   </style>
 </head>
 <body>
@@ -1000,6 +959,10 @@
     <img id="title-screen-img" src="assets/title screen.webp" alt="Lights Out" />
     <button class="btn-play" onclick="handleStart()" aria-label="Play">
       <img src="assets/play button.svg" alt="Play" />
+    </button>
+    <!-- shown on the title screen after the game is completed (replaces PLAY) -->
+    <button id="title-play-again" class="hidden" onclick="handleStart()" aria-label="Play Again">
+      <img src="assets/play again.svg" alt="Play Again" />
     </button>
   </div>
 
@@ -1031,7 +994,7 @@
 
     <!-- Hint button (bulb) — hidden until the bot bar appears; glows after 2 wrong taps -->
     <button id="hint-btn" class="hb-hidden" aria-label="Show hint">
-      <img src="assets/hint.svg" alt="Hint" />
+      <img src="assets/hint-yellow.svg" alt="Hint" />
     </button>
 
     <!-- Glowing pipe connectors -->
@@ -1094,15 +1057,14 @@
       <div id="options-area"></div>
     </div>
 
+    <!-- Tutorial hand nudge — points at the option to tap (Level 1 only) -->
+    <img id="hand-nudge" class="hidden" src="assets/nudge.webp" alt="" />
+
   </div>
 
   <!-- ── COMPLETE ──────────────────────────────── -->
   <div id="screen-complete" class="hidden">
     <video id="end-video" src="assets/end-video.webm" playsinline preload="auto"></video>
-    <button id="end-play-again" class="btn-start hidden" onclick="resetGame()" aria-label="Play Again">
-      <span class="shine"></span>
-      <span class="lbl">Play Again</span>
-    </button>
   </div>
 
   <!-- ── Confetti burst (energy shards / sparks on pattern complete) ── -->
@@ -1277,6 +1239,75 @@
     return _master;
   }
 
+  /* ── Background music: a soft, looping sci-fi ambient bed (synth) ──
+     A gentle detuned pad drifting through a calm chord loop, with sparse pentatonic
+     "bloops" over the top. Kept quiet so it sits under the SFX (balanced, not overpowering).
+     Starts on the first Play tap (audio unlock) and pauses while the end video plays. */
+  const MUSIC_VOL = 0.8;   /* overall music level 0..1 — tune to taste */
+  let _music = null;
+  function startMusic() {
+    const ctx = ac();
+    try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) {}
+    if (_music) {   /* already built — fade back in and restart the sequencers */
+      _music.gain.gain.cancelScheduledValues(ctx.currentTime);
+      _music.gain.gain.setTargetAtTime(MUSIC_VOL, ctx.currentTime, 0.6);
+      if (!_music.melTimer)   _music.melTimer   = setInterval(_music.melTick,   _music.melMs);
+      if (!_music.chordTimer) _music.chordTimer = setInterval(_music.chordTick, _music.chordMs);
+      return;
+    }
+    const gain = ctx.createGain(); gain.gain.value = 0; gain.connect(masterGain());
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 0.3; lp.connect(gain);
+
+    /* calm chord loop (Hz): A maj → F# min → D maj → E maj */
+    const chords = [
+      [110.00, 138.59, 164.81],
+      [ 92.50, 110.00, 138.59],
+      [ 73.42,  92.50, 110.00],
+      [ 82.41, 103.83, 123.47],
+    ];
+    const pad = chords[0].map((f, i) => {
+      const o = ctx.createOscillator(); o.type = i === 0 ? 'triangle' : 'sine';
+      o.frequency.value = f; o.detune.value = (i - 1) * 4;
+      const g = ctx.createGain(); g.gain.value = 0.035;
+      o.connect(g); g.connect(lp); o.start();
+      return o;
+    });
+    let ci = 0;
+    const chordTick = () => {
+      ci = (ci + 1) % chords.length;
+      const t = ctx.currentTime;
+      pad.forEach((o, i) => o.frequency.setTargetAtTime(chords[ci][i], t, 0.9));   /* smooth glide */
+    };
+
+    /* sparse A-major-pentatonic "bloops", wandering so it never feels repetitive */
+    const scale = [440.00, 493.88, 554.37, 659.25, 739.99, 880.00];
+    let mi = 2;
+    const melTick = () => {
+      mi = (mi + 1 + Math.floor(Math.random() * 2)) % scale.length;
+      const t = ctx.currentTime;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = scale[mi];
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.04, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      o.connect(g); g.connect(lp); o.start(t); o.stop(t + 1.2);
+    };
+
+    const melMs = 900, chordMs = 7000;
+    _music = {
+      gain, pad, melTick, chordTick, melMs, chordMs,
+      melTimer: setInterval(melTick, melMs),
+      chordTimer: setInterval(chordTick, chordMs),
+    };
+    gain.gain.setTargetAtTime(MUSIC_VOL, ctx.currentTime, 1.2);   /* gentle fade-in */
+  }
+  function pauseMusic() {
+    if (!_music) return;
+    _music.gain.gain.setTargetAtTime(0.0001, ac().currentTime, 0.4);
+    if (_music.melTimer)   { clearInterval(_music.melTimer);   _music.melTimer = null; }
+    if (_music.chordTimer) { clearInterval(_music.chordTimer); _music.chordTimer = null; }
+  }
+
   function sfxHover() {
     const ctx = ac(), o = ctx.createOscillator(), g = ctx.createGain();
     o.connect(g); g.connect(masterGain());
@@ -1310,16 +1341,18 @@
   }
 
   function sfxWrong() {
-    const ctx = ac();
-    [0, 0.13, 0.26].forEach((t, i) => {
+    const ctx = ac(), t0 = ctx.currentTime;
+    /* gentle, non-alarming "aw" — two soft descending triangle notes (no harsh buzz) */
+    [[392.0, 0], [329.63, 0.15]].forEach(([f, dt]) => {   /* G4 → E4 */
       const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(f, t0 + dt);
+      o.frequency.exponentialRampToValueAtTime(f * 0.94, t0 + dt + 0.16);
+      g.gain.setValueAtTime(0.0001, t0 + dt);
+      g.gain.exponentialRampToValueAtTime(0.12, t0 + dt + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.24);
       o.connect(g); g.connect(masterGain());
-      o.type = 'sawtooth';
-      o.frequency.setValueAtTime(180 - i * 30, ctx.currentTime + t);
-      o.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + t + 0.12);
-      g.gain.setValueAtTime(0.18, ctx.currentTime + t);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.14);
-      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.14);
+      o.start(t0 + dt); o.stop(t0 + dt + 0.26);
     });
   }
 
@@ -1796,6 +1829,25 @@
     if (a) a.classList.add('show', 'glow');
   }
 
+  /* Tutorial hand nudge — points the tapping hand at the option the player should tap.
+     Only used on Level 1 (the tutorial). Option centres match the flex layout in CSS. */
+  const OPT_X0 = 634.09, OPT_PITCH = 150.208, NUDGE_W = 64;
+  function showNudgeAtOption() {
+    if (currentRow !== 0) return;                         /* tutorial only */
+    const cfg = ROWS_CONFIG[0];
+    const correct = getCorrect(cfg, grid[0].length);
+    const idx = cfg.options.indexOf(correct);
+    const el = document.getElementById('hand-nudge');
+    if (idx < 0 || !el) return;
+    el.style.left = (OPT_X0 + idx * OPT_PITCH - NUDGE_W / 2) + 'px';
+    el.style.top  = '892px';                              /* fingertip sits in the lower part of the tile */
+    el.classList.remove('hidden');
+  }
+  function hideNudge() {
+    const el = document.getElementById('hand-nudge');
+    if (el) el.classList.add('hidden');
+  }
+
   function armHint() {
     if (showHint) return;   /* already revealed for this slot */
     hintArmed = true;
@@ -1930,10 +1982,10 @@
     if (!isRowComplete) panel.classList.remove('well-done-active');
     document.getElementById('screen-question').classList.toggle('celebrating', isRowComplete);
 
-    /* Vent bars react to input: red on a wrong answer, green on a correct placement */
-    const ventWrong = phase === 'wrong' || phase === 'wrong-second';
-    panel.classList.toggle('vent-wrong', ventWrong);
-    panel.classList.toggle('vent-correct', !ventWrong && justPlaced);
+    /* Vent bars go green on a correct placement. Wrong answers do NOT touch the panel —
+       their feedback shows only on the tapped option (shake + amber glow + sparks). */
+    panel.classList.toggle('vent-wrong', false);
+    panel.classList.toggle('vent-correct', justPlaced);
     botBar.style.visibility = isRowComplete ? 'hidden' : 'visible';
 
     /* Well done overlay — reveal handled by the timer in handleAnswer */
@@ -1956,8 +2008,7 @@
     /* ── Switch row container ── */
     const swRow = document.getElementById('switch-row');
     swRow.innerHTML = '';
-    swRow.classList.toggle('shaking', phase === 'wrong');
-    if (phase === 'wrong') { void swRow.offsetWidth; }
+    swRow.classList.remove('shaking');   /* wrong answers no longer shake the switch panel */
 
     const userPositions = getUserPositions(cfg);
     const rowFull       = row.length >= userPositions.length;
@@ -1998,13 +2049,12 @@
       }
 
       /* ── User-fill slot ── */
+      /* a wrong pick is never placed into a slot — the slot stays empty (next-slot glow)
+         and the feedback shows on the tapped option instead */
       const userIdx   = userPositions.indexOf(i);
       const answered  = userIdx < row.length;
       const isCurrent = userIdx === row.length;
-      const isWrong   = wrongAnswer != null && isCurrent && phase === 'wrong';
-      if (isWrong) {
-        swRow.appendChild(makeSw(wrongAnswer, 'wrong'));
-      } else if (answered) {
+      if (answered) {
         const isNew = justPlaced && userIdx === row.length - 1;
         const el = makeSw(row[userIdx], isNew ? 'new' : 'filled');
         if (isNew) el.style.animationDelay = delay;
@@ -2024,7 +2074,7 @@
     optArea.classList.remove('invisible', 'reveal', 'hidden-initially');
     cfg.options.forEach(opt => {
       const isCorrect      = opt === correct;
-      const isWrongOption  = phase === 'wrong-second' && opt === wrongAnswer;
+      const isWrongOption  = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
       const cls            = isWrongOption ? 'wrong-option'
                            : showHint && isCorrect ? 'hint'
                            : 'option';
@@ -2053,11 +2103,16 @@
   }
 
   function handleStart() {
+    if (handleStart._busy) return;   /* ignore double-taps until a game resets */
+    handleStart._busy = true;
     /* unlock the Web Audio context on this user gesture so timed SFX can play later */
     try { const c = ac(); if (c.state === 'suspended') c.resume(); } catch (e) {}
     sfxClick();   /* audible PLAY press (context is now unlocked by this gesture) */
-    /* blast doors close over the title, then the gameplay entrance begins behind them */
-    playTransition(() => { handleLevelStart(); });
+    startMusic();   /* kick off the background music now that audio is unlocked */
+    /* little sparks burst from whichever start button was tapped (PLAY or Play Again) */
+    spawnSparks(document.querySelector('#screen-intro button:not(.hidden)') || document.querySelector('.btn-play'), 22);
+    /* short beat so the sparks are visible, THEN the blast doors close + entrance begins */
+    setTimeout(() => { playTransition(() => { handleLevelStart(); }); }, 360);
   }
 
   function handleLevelStart() {
@@ -2081,6 +2136,7 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
+    hideNudge();   /* hand nudge only appears once the tutorial prompt is reached */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
     /* the bot bar stays hidden until everything else has appeared (start it empty so no
@@ -2164,6 +2220,8 @@
               queueBotText('Tap the correct switch to continue the pattern.', voiceTapCorrect);
               /* the answer-slot +2 arrows are NOT shown yet — each one proceeds in
                  (tutorialAdvanceArrow) as the player fills its slot correctly */
+              /* point the hand nudge at the correct option once the prompt is done */
+              queueAction((done) => { showNudgeAtOption(); done(); });
             } else {
               queueBotText('Tap the correct switch.', voiceTapCorrect);
             }
@@ -2196,6 +2254,7 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
     resetHint();   /* clear any bulb glow / hop arrows from the previous level */
+    hideNudge();   /* the hand nudge is tutorial-only */
     document.getElementById('hint-btn').classList.remove('hb-hidden');   /* bulb stays (chrome persists) */
     const botBar = document.getElementById('bot-bar');
     botBar.classList.remove('bar-hidden');     /* the text bar stays */
@@ -2243,6 +2302,11 @@
       grid[currentRow] = [...grid[currentRow], val];
       /* Level-1 tutorial: the +2 arrow proceeds onto the slot the player just filled */
       tutorialAdvanceArrow(getUserPositions(cfg)[grid[currentRow].length - 1]);
+      /* Level-1 tutorial: move the hand nudge to the next option, or hide it when done */
+      if (currentRow === 0) {
+        if (grid[currentRow].length >= getUserPositions(cfg).length) hideNudge();
+        else showNudgeAtOption();
+      }
 
       if (grid[currentRow].length >= getUserPositions(cfg).length) {
         _setOptionsLock(true);
@@ -2286,32 +2350,19 @@
         justPlaced = true; renderQuestion(); justPlaced = false;
       }
     } else {
+      /* Wrong pick: gentle feedback ONLY on the tapped option — shake + amber glow +
+         sparks + a soft sound. No spoken instruction (so it never repeats and the player
+         can just try again), and nothing changes on the switch panel. */
       sfxWrong();
-      queueBotText('Uh-oh! Try again!', voiceUhOh);
       wrongAnswer = val; streak = 0; wrongCount++;
-      if (wrongCount >= 2) {
-        /* second wrong: mark it, then GLOW the hint bulb — the player taps it for the hint */
-        phase = 'wrong-second';
+      phase = (wrongCount >= 2) ? 'wrong-second' : 'wrong';
+      renderQuestion();
+      spawnSparks(document.querySelector('#options-area .sw.wrong-option .tile'));
+      timer = setTimeout(() => {
+        wrongAnswer = null; phase = 'question';
+        if (wrongCount >= 2 && !showHint) armHint();   /* after 2 wrongs, glow the hint bulb (no spoken line) */
         renderQuestion();
-        spawnSparks(document.querySelector('#options-area .sw.wrong-option .tile'));
-        timer = setTimeout(() => {
-          wrongAnswer = null; phase = 'question';
-          if (!showHint) {
-            armHint();
-            if (wrongCount === 2) queueBotText('Check the pattern again.', voiceHint);
-          }
-          renderQuestion();
-        }, 800);
-      } else {
-        phase = 'wrong';
-        renderQuestion();
-        spawnSparks(document.querySelector('#switch-row .sw.wrong .tile'));
-        timer = setTimeout(() => {
-          wrongAnswer = null; phase = 'question';
-          renderQuestion();
-          queueBotText('Tap the correct switch.', voiceTapCorrect);
-        }, 1400);
-      }
+      }, 900);
     }
   }
 
@@ -2443,32 +2494,44 @@
 
   /* final screen: play the end video, reveal Play Again when it finishes */
   function playEndVideo() {
+    pauseMusic();   /* let the end video's own audio play without the BGM under it */
     const v = document.getElementById('end-video');
-    const btn = document.getElementById('end-play-again');
-    btn.classList.add('hidden');
-    if (!v) return;
+    if (!v) { goToTitleWithPlayAgain(); return; }
     try { v.currentTime = 0; } catch (e) {}
-    v.onended = () => btn.classList.remove('hidden');
+    /* when the video finishes, go back to the title screen and show Play Again */
+    v.onended = () => { v.onended = null; goToTitleWithPlayAgain(); };
     const p = v.play();
-    if (p && p.catch) p.catch(() => btn.classList.remove('hidden'));  /* if autoplay is blocked, still offer replay */
+    if (p && p.catch) p.catch(() => goToTitleWithPlayAgain());  /* if autoplay is blocked, still proceed */
   }
 
-  function resetGame() {
+  /* reset all game state for a fresh run — does NOT change screens or touch the blast-door
+     transition (it's called from inside one) */
+  function resetGameState() {
     if (timer) clearTimeout(timer);
     if (levelTimer) clearTimeout(levelTimer);
     clearVoiceQueue();
     stopConfetti();
-    document.getElementById('transition').classList.add('hidden');
-    document.getElementById('transition').classList.remove('closed');
     const _ev = document.getElementById('end-video');
     if (_ev) { try { _ev.pause(); _ev.currentTime = 0; } catch (e) {} }
     phase = 'intro'; currentRow = 0;
     wrongCount = 0; wrongAnswer = null;
     showHint = false; score = 0; streak = 0;
     tutorialArrowsLocked = false;
+    handleStart._busy = false;   /* allow Play Again */
     resetHint();
+    hideNudge();
     initGrid();
-    showScreen('intro');
+  }
+
+  /* after the completion video: blast-door transition back to the title, reset for a fresh
+     run, and reveal the Play Again button in place of PLAY */
+  function goToTitleWithPlayAgain() {
+    playTransition(() => {
+      resetGameState();
+      showScreen('intro');
+      document.querySelector('.btn-play').classList.add('hidden');
+      document.getElementById('title-play-again').classList.remove('hidden');
+    });
   }
 
 
@@ -2476,6 +2539,7 @@
   const PRELOAD_ASSETS = [
     'assets/title screen.webp',
     'assets/play button.svg',
+    'assets/play again.svg',
     'assets/robot dance.webp',
     'assets/Red button.webp',
     'assets/Green button.webp',
@@ -2490,7 +2554,7 @@
     'assets/arrow arc.webp',      /* hint hop: +2 */
     'assets/arrow arc 3.webp',    /* hint hop: +3 */
     'assets/arrow arc 2.webp',    /* hint hop: +5 */
-    'assets/hint.svg',           /* hint (bulb) button */
+    'assets/hint-yellow.svg',    /* hint (bulb) button */
   ];
 
   function preloadAssets(onProgress) {
@@ -2507,30 +2571,32 @@
   /* Smooth GSAP attention effects for the title-screen PLAY button */
   function animatePlayButton() {
     if (!window.gsap) return;
-    const btn = document.querySelector('.btn-play');
+    document.querySelectorAll('.btn-play, #title-play-again').forEach(_setupBtnPulse);
+  }
+  function _setupBtnPulse(btn) {
     if (!btn || btn._gsapInit) return;
     btn._gsapInit = true;
     const img = btn.querySelector('img');
     if (!img) return;
 
     const DEPTH = 'drop-shadow(0 7px 14px rgba(0,16,32,0.55))';
-    const PERIOD = 1.9;   /* breathing + glow share one rhythm so they pulse together */
+    const PERIOD = 1.05;   /* faster, punchier pulse (breathing + glow share one rhythm) */
 
-    /* gentle breathing — soft sine, no jarring pop */
+    /* bold breathing pulse */
     gsap.to(img, {
-      scale: 1.045, duration: PERIOD, repeat: -1, yoyo: true,
+      scale: 1.11, duration: PERIOD, repeat: -1, yoyo: true,
       ease: 'sine.inOut', transformOrigin: '50% 50%'
     });
 
     /* shaped neon glow that hugs the octagon (drop-shadow on the SVG), pulsing in sync */
-    const g = { blur: 12, a: 0.4 };
+    const g = { blur: 16, a: 0.55 };
     const paint = () => {
       img.style.filter = 'drop-shadow(0 0 ' + g.blur.toFixed(1) + 'px rgba(12,228,249,' +
                          g.a.toFixed(3) + ')) ' + DEPTH;
     };
     paint();
     gsap.to(g, {
-      blur: 30, a: 0.85, duration: PERIOD, repeat: -1, yoyo: true,
+      blur: 46, a: 1.0, duration: PERIOD, repeat: -1, yoyo: true,
       ease: 'sine.inOut', onUpdate: paint
     });
 
@@ -2555,15 +2621,10 @@
       });
     };
     const play  = document.querySelector('.btn-play');
-    const again = document.getElementById('end-play-again');
+    const again = document.getElementById('title-play-again');
     const hint  = document.getElementById('hint-btn');
     addHover(play);    /* PLAY: the press sound is played in handleStart() */
-    if (again && !again._pressSfx) {
-      again._pressSfx = true;
-      addHover(again);
-      /* by the end screen the audio context is already unlocked, so the press sounds */
-      again.addEventListener('pointerdown', () => sfxClick());
-    }
+    addHover(again);   /* Play Again: also starts the game via handleStart() (press sound there) */
     if (hint && !hint._wired) {
       hint._wired = true;
       addHover(hint);
