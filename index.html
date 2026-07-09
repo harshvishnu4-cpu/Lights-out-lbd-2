@@ -597,20 +597,6 @@
       50%     { filter: drop-shadow(0 0 20px rgba(12,228,249,1)) brightness(1.25); }
     }
 
-    /* ── Tutorial hand nudge (points at the option to tap; Level 1 only) ── */
-    #hand-nudge {
-      position: absolute;
-      width: 64px; height: auto;
-      z-index: 7;
-      pointer-events: none;
-      filter: drop-shadow(0 5px 7px rgba(0,0,0,.5));
-      transform-origin: 50% 0%;              /* pivot at the fingertip */
-      animation: handTap 0.95s ease-in-out infinite;
-    }
-    @keyframes handTap {
-      0%,100% { transform: translateY(0)     scale(1);    }
-      50%     { transform: translateY(-16px) scale(0.95); }
-    }
 
     /* ════════════════════════════════════════════
        LEVEL INTRO SCREEN
@@ -1043,8 +1029,6 @@
       <div id="options-area"></div>
     </div>
 
-    <!-- Tutorial hand nudge — points at the option to tap (Level 1 only) -->
-    <img id="hand-nudge" class="hidden" src="assets/nudge.webp" alt="" />
 
   </div>
 
@@ -1689,6 +1673,7 @@
   const HINT_ARROW_SRC = { 2: 'assets/arrow arc.webp', 3: 'assets/arrow arc 3.webp', 5: 'assets/arrow arc 2.webp' };
   let hintArmed = false;
   let tutorialArrowsLocked = false;   /* keep the +2 arrows on screen through the Level-1 tutorial */
+  let tutorialGuide = false;          /* Level-1 tutorial: glow the correct option to guide the tap */
 
   /* panel-relative x-centre of switch i, matching the centred flex row in CSS */
   function switchCenterX(i, count) {
@@ -1746,24 +1731,6 @@
     if (a) a.classList.add('show', 'glow');
   }
 
-  /* Tutorial hand nudge — points the tapping hand at the option the player should tap.
-     Only used on Level 1 (the tutorial). Option centres match the flex layout in CSS. */
-  const OPT_X0 = 634.09, OPT_PITCH = 150.208, NUDGE_W = 64;
-  function showNudgeAtOption() {
-    if (currentRow !== 0) return;                         /* tutorial only */
-    const cfg = ROWS_CONFIG[0];
-    const correct = getCorrect(cfg, grid[0].length);
-    const idx = cfg.options.indexOf(correct);
-    const el = document.getElementById('hand-nudge');
-    if (idx < 0 || !el) return;
-    el.style.left = (OPT_X0 + idx * OPT_PITCH - NUDGE_W / 2) + 'px';
-    el.style.top  = '892px';                              /* fingertip sits in the lower part of the tile */
-    el.classList.remove('hidden');
-  }
-  function hideNudge() {
-    const el = document.getElementById('hand-nudge');
-    if (el) el.classList.add('hidden');
-  }
 
   function armHint() {
     if (showHint) return;   /* already revealed for this slot */
@@ -1993,7 +1960,7 @@
       const isCorrect      = opt === correct;
       const isWrongOption  = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
       const cls            = isWrongOption ? 'wrong-option'
-                           : showHint && isCorrect ? 'hint'
+                           : (showHint || tutorialGuide) && isCorrect ? 'hint'
                            : 'option';
       optArea.appendChild(makeSw(opt, cls, isWrongOption ? null : () => handleAnswer(opt)));
     });
@@ -2051,8 +2018,8 @@
     document.getElementById('byte-dance').classList.remove('show');
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
+    tutorialGuide = false;          /* correct-option glow only appears at the tutorial prompt */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
-    hideNudge();   /* hand nudge only appears once the tutorial prompt is reached */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
     /* the bot bar stays hidden until everything else has appeared (start it empty so no
@@ -2136,8 +2103,8 @@
               queueBotText('Tap the correct switch to continue the pattern.', voiceTapCorrect);
               /* the answer-slot +2 arrows are NOT shown yet — each one proceeds in
                  (tutorialAdvanceArrow) as the player fills its slot correctly */
-              /* point the hand nudge at the correct option once the prompt is done */
-              queueAction((done) => { showNudgeAtOption(); done(); });
+              /* glow the correct option to guide the tap (moves to the next one automatically) */
+              queueAction((done) => { tutorialGuide = true; renderQuestion(); done(); });
             } else {
               queueBotText('Tap the correct switch.', voiceTapCorrect);
             }
@@ -2169,8 +2136,8 @@
     document.getElementById('byte-dance').classList.remove('show');
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
+    tutorialGuide = false;          /* the correct-option glow is tutorial-only */
     resetHint();   /* clear any bulb glow / hop arrows from the previous level */
-    hideNudge();   /* the hand nudge is tutorial-only */
     document.getElementById('hint-btn').classList.remove('hb-hidden');   /* bulb stays (chrome persists) */
     const botBar = document.getElementById('bot-bar');
     botBar.classList.remove('bar-hidden');     /* the text bar stays */
@@ -2218,11 +2185,9 @@
       grid[currentRow] = [...grid[currentRow], val];
       /* Level-1 tutorial: the +2 arrow proceeds onto the slot the player just filled */
       tutorialAdvanceArrow(getUserPositions(cfg)[grid[currentRow].length - 1]);
-      /* Level-1 tutorial: move the hand nudge to the next option, or hide it when done */
-      if (currentRow === 0) {
-        if (grid[currentRow].length >= getUserPositions(cfg).length) hideNudge();
-        else showNudgeAtOption();
-      }
+      /* Level-1 tutorial: the guide glow follows the correct option automatically on the
+         next renderQuestion; just switch it off once the row is complete */
+      if (currentRow === 0 && grid[currentRow].length >= getUserPositions(cfg).length) tutorialGuide = false;
 
       if (grid[currentRow].length >= getUserPositions(cfg).length) {
         _setOptionsLock(true);
@@ -2432,9 +2397,9 @@
     wrongCount = 0; wrongAnswer = null;
     showHint = false; score = 0; streak = 0;
     tutorialArrowsLocked = false;
+    tutorialGuide = false;
     handleStart._busy = false;   /* allow Play Again */
     resetHint();
-    hideNudge();
     initGrid();
   }
 

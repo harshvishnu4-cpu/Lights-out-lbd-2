@@ -120,10 +120,11 @@ panel → option tiles pop in. Each beat has its own sound.
      the answers as the pattern is continued.
   - The tutorial arrows stay up for the whole level (`tutorialArrowsLocked` makes
     `resetHint` skip clearing them until the level is left).
-  5. A **hand nudge** (`assets/nudge.webp`, a tapping hand) points at the option the player
-     should tap (`showNudgeAtOption`), bobbing with a `handTap` animation. It appears once
-     the tutorial prompt is reached and **follows to the next correct option** after each
-     pick (12 → 14 → 16), then hides when the level is solved. Level 1 only.
+  5. A **guide glow** on the correct option marks what to tap (`tutorialGuide` flag → the
+     `.sw.hint` cyan glow in `renderQuestion`). It appears once the tutorial prompt is reached
+     and **follows to the next correct option** after each pick (12 → 14 → 16) automatically
+     (each render re-computes the correct answer), then switches off when the level is solved.
+     Level 1 only; it does not affect scoring.
 - On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
   Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
   covers every correct answer across all four levels; any unmapped number silently skips.
@@ -153,7 +154,7 @@ originals have been removed (converted 2026-07-01 via `sharp` + `ffmpeg-static`;
   `title screen.webp` ("LIGHTS OUT!" title art), `play button.svg` (title-screen **PLAY**
   button — a bold GSAP breathing pulse; a **spark burst** fires from it on tap, then the
   blast-door transition starts the game), `hint-yellow.svg` (yellow hint bulb button),
-  `nudge.webp` (tutorial hand), `arrow arc.webp` / `arrow arc 2.webp` / `arrow arc 3.webp`
+  `arrow arc.webp` / `arrow arc 2.webp` / `arrow arc 3.webp`
   (hint "+N" hops), `end-video.webm` (completion video), `play again.svg` (the **Play Again**
   button shown on the title screen after a completed run — same pulse + click-spark as PLAY).
 - SVGs are kept as vectors (converting them to WebP would rasterize and lose crispness).
