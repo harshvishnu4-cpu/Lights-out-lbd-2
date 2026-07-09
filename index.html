@@ -293,16 +293,9 @@
       border: 4px solid #a3fffc;
       border-radius: 11px;
     }
-    /* active "place here" slot — cyan glow per the Figma design (#69f4f9 layered) */
+    /* active "place here" slot — same plain cyan border as the other empty slots (no glow) */
     .sw.empty.next-slot {
       border: 4px solid #a3fffc;
-      box-shadow:
-        0 0 3px #69f4f9,
-        0 0 6px #69f4f9,
-        0 0 21px #69f4f9,
-        0 0 42px rgba(105,244,249,0.85),
-        0 0 72px rgba(105,244,249,0.6),
-        0 0 125px rgba(105,244,249,0.45);
     }
 
     @keyframes wrongGlowPulse {
@@ -558,16 +551,9 @@
       pointer-events: none;   /* inert until armed after 2 wrong taps */
       transition: opacity .45s ease, transform .12s ease;
     }
-    /* the bulb always glows + gently pulses; armed makes it bright and pulse hard */
-    #hint-btn img {
-      display: block; width: 100%; height: 100%;
-      animation: hintIdle 1.8s ease-in-out infinite;
-    }
-    @keyframes hintIdle {
-      0%,100% { transform: scale(1);    filter: drop-shadow(0 0 6px  rgba(255,210,63,.7));  }
-      50%     { transform: scale(1.05); filter: drop-shadow(0 0 16px rgba(255,210,63,.95)); }
-    }
-    /* armed after 2 wrong taps: brighter, bigger, faster pulse to grab focus */
+    /* idle: plain bulb — NO pulse, NO glow (stays quiet until the player needs a hint) */
+    #hint-btn img { display: block; width: 100%; height: 100%; }
+    /* armed after 2 wrong taps: bright, pulsing + glowing to grab focus */
     #hint-btn.armed { opacity: 1; pointer-events: auto; }
     #hint-btn.armed img { animation: hintArmed 0.8s ease-in-out infinite; }
     @keyframes hintArmed {
@@ -575,7 +561,7 @@
       50%     { transform: scale(1.18); filter: drop-shadow(0 0 34px rgba(255,210,63,1)) brightness(1.15); }
     }
     #hint-btn.used { opacity: .4; pointer-events: none; }
-    #hint-btn.used img { animation: none; filter: drop-shadow(0 0 5px rgba(255,210,63,.5)); }
+    #hint-btn.used img { animation: none; filter: none; }
     /* stays hidden through the entrance cascade; JS reveals it the moment the bot bar appears */
     #hint-btn.hb-hidden { opacity: 0; pointer-events: none; }
     /* pop-in when it appears with the bar (transform only, so opacity/armed states are untouched) */
@@ -709,17 +695,17 @@
     /* ── Title-screen PLAY button (image asset, bottom-right corner) ── */
     #screen-intro .btn-play {
       position: absolute;
-      right: 104px; bottom: 88px;
+      right: 66px; bottom: 74px;   /* same spot/size as Play Again, which replaces it */
       z-index: 2;
     }
     .btn-play {
       background: none; border: none; padding: 0; margin: 0; cursor: pointer;
       -webkit-tap-highlight-color: transparent;
-      width: 300px; line-height: 0;
+      width: 340px; line-height: 0;
       will-change: transform;
     }
     .btn-play img {
-      width: 300px; height: auto; display: block;
+      width: 340px; height: auto; display: block;
       will-change: transform, filter;
       /* fallback shaped glow + depth (GSAP animates this when loaded) */
       filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
@@ -1237,75 +1223,6 @@
       comp.connect(ctx.destination);
     }
     return _master;
-  }
-
-  /* ── Background music: a soft, looping sci-fi ambient bed (synth) ──
-     A gentle detuned pad drifting through a calm chord loop, with sparse pentatonic
-     "bloops" over the top. Kept quiet so it sits under the SFX (balanced, not overpowering).
-     Starts on the first Play tap (audio unlock) and pauses while the end video plays. */
-  const MUSIC_VOL = 0.8;   /* overall music level 0..1 — tune to taste */
-  let _music = null;
-  function startMusic() {
-    const ctx = ac();
-    try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) {}
-    if (_music) {   /* already built — fade back in and restart the sequencers */
-      _music.gain.gain.cancelScheduledValues(ctx.currentTime);
-      _music.gain.gain.setTargetAtTime(MUSIC_VOL, ctx.currentTime, 0.6);
-      if (!_music.melTimer)   _music.melTimer   = setInterval(_music.melTick,   _music.melMs);
-      if (!_music.chordTimer) _music.chordTimer = setInterval(_music.chordTick, _music.chordMs);
-      return;
-    }
-    const gain = ctx.createGain(); gain.gain.value = 0; gain.connect(masterGain());
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 0.3; lp.connect(gain);
-
-    /* calm chord loop (Hz): A maj → F# min → D maj → E maj */
-    const chords = [
-      [110.00, 138.59, 164.81],
-      [ 92.50, 110.00, 138.59],
-      [ 73.42,  92.50, 110.00],
-      [ 82.41, 103.83, 123.47],
-    ];
-    const pad = chords[0].map((f, i) => {
-      const o = ctx.createOscillator(); o.type = i === 0 ? 'triangle' : 'sine';
-      o.frequency.value = f; o.detune.value = (i - 1) * 4;
-      const g = ctx.createGain(); g.gain.value = 0.035;
-      o.connect(g); g.connect(lp); o.start();
-      return o;
-    });
-    let ci = 0;
-    const chordTick = () => {
-      ci = (ci + 1) % chords.length;
-      const t = ctx.currentTime;
-      pad.forEach((o, i) => o.frequency.setTargetAtTime(chords[ci][i], t, 0.9));   /* smooth glide */
-    };
-
-    /* sparse A-major-pentatonic "bloops", wandering so it never feels repetitive */
-    const scale = [440.00, 493.88, 554.37, 659.25, 739.99, 880.00];
-    let mi = 2;
-    const melTick = () => {
-      mi = (mi + 1 + Math.floor(Math.random() * 2)) % scale.length;
-      const t = ctx.currentTime;
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = scale[mi];
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.04, t + 0.06);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
-      o.connect(g); g.connect(lp); o.start(t); o.stop(t + 1.2);
-    };
-
-    const melMs = 900, chordMs = 7000;
-    _music = {
-      gain, pad, melTick, chordTick, melMs, chordMs,
-      melTimer: setInterval(melTick, melMs),
-      chordTimer: setInterval(chordTick, chordMs),
-    };
-    gain.gain.setTargetAtTime(MUSIC_VOL, ctx.currentTime, 1.2);   /* gentle fade-in */
-  }
-  function pauseMusic() {
-    if (!_music) return;
-    _music.gain.gain.setTargetAtTime(0.0001, ac().currentTime, 0.4);
-    if (_music.melTimer)   { clearInterval(_music.melTimer);   _music.melTimer = null; }
-    if (_music.chordTimer) { clearInterval(_music.chordTimer); _music.chordTimer = null; }
   }
 
   function sfxHover() {
@@ -2108,7 +2025,6 @@
     /* unlock the Web Audio context on this user gesture so timed SFX can play later */
     try { const c = ac(); if (c.state === 'suspended') c.resume(); } catch (e) {}
     sfxClick();   /* audible PLAY press (context is now unlocked by this gesture) */
-    startMusic();   /* kick off the background music now that audio is unlocked */
     /* little sparks burst from whichever start button was tapped (PLAY or Play Again) */
     spawnSparks(document.querySelector('#screen-intro button:not(.hidden)') || document.querySelector('.btn-play'), 22);
     /* short beat so the sparks are visible, THEN the blast doors close + entrance begins */
@@ -2494,7 +2410,6 @@
 
   /* final screen: play the end video, reveal Play Again when it finishes */
   function playEndVideo() {
-    pauseMusic();   /* let the end video's own audio play without the BGM under it */
     const v = document.getElementById('end-video');
     if (!v) { goToTitleWithPlayAgain(); return; }
     try { v.currentTime = 0; } catch (e) {}

@@ -33,7 +33,7 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
 ## Screens
 | Screen | Purpose |
 |---|---|
-| `#screen-intro` | Title image + **PLAY** button (first launch) OR **Play Again** button (after a completed run). The tap unlocks Web Audio + starts BGM. |
+| `#screen-intro` | Title image + **PLAY** button (first launch) OR **Play Again** button (after a completed run). The tap unlocks Web Audio. |
 | `#screen-level` | Level intro markup (currently **unused** — Start goes straight to gameplay) |
 | `#screen-question` | Main gameplay |
 | `#screen-complete` | Just the completion **video**; when it ends the game returns to the title and reveals **Play Again** (`goToTitleWithPlayAgain`) |
@@ -61,9 +61,10 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
   and the switch panel doesn't react (no vent flash, no panel shake), and **no spoken line
   is replayed** (the bot text stays put) so the player can immediately try again. After 2
   wrongs the hint bulb still glows (silently). No red anywhere.
-- **Hint** (Figma `node 1009-2060`): after **2** wrong taps the **bulb button** (right
-  end of the bot bar) turns **bright yellow and pulses** (`armed` → `hintBtnPulse`: scale +
-  yellow glow) to grab focus. Tapping it reveals the *hint screen*: the pattern step shown
+- **Hint** (Figma `node 1009-2060`): the yellow bulb button (right end of the bot bar) sits
+  **plain/quiet by default** (no glow, no pulse). Only after **2** wrong taps does it become
+  `armed` → **bright, pulsing + glowing** (`hintArmed`: scale + yellow glow) to grab focus.
+  Tapping it reveals the *hint screen*: the pattern step shown
   as **"+N" hop arrows** above every switch pair, plus the correct option glowing. The bulb
   then dims (`used`); it re-arms if the player gets stuck on a later slot. Hint state resets
   on each new slot / level / restart (`resetHint`).
@@ -88,7 +89,7 @@ panel → option tiles pop in. Each beat has its own sound.
 
 ### Switches & vent
 - Tiles render as a metal rocker (cropped from `tile.png`) + a **Lilita One** number.
-- Empty slots: cyan neon border; the active "next" slot has a soft cyan glow.
+- Empty slots: plain cyan neon border (the "next" slot is no longer glow-highlighted).
 - **Vent bars** (top of panel) recolor by state: cyan (idle), green (correct),
   red (wrong).
 
@@ -135,11 +136,8 @@ spark)**, talk blips, the **current-flow surge**, and **menu-button hover/press*
 and Play Again click like the tiles). The wrong-answer SFX is a **soft two-note triangle
 "aw"** (not a harsh buzz). Optional number-voice `.ogg` files are referenced and degrade
 gracefully if missing.
-- **Background music** (`startMusic`/`pauseMusic`, `MUSIC_VOL`): a quiet synth ambient bed
-  — a detuned pad drifting through a calm 4-chord loop (A→F#m→D→E) with sparse
-  A-pentatonic "bloops" over it. Starts on the first Play tap (audio-unlock gesture),
-  loops throughout gameplay, and pauses while the end video plays (so its own audio isn't
-  doubled). Balanced low so it sits under the SFX; tune with the `MUSIC_VOL` constant.
+- **No background music** — the game runs on SFX only (the synth ambient BGM was removed).
+  The completion `end-video.webm` still carries its own audio.
 
 ---
 
