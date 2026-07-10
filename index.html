@@ -597,6 +597,16 @@
       50%     { filter: drop-shadow(0 0 20px rgba(12,228,249,1)) brightness(1.25); }
     }
 
+    /* Tutorial: static "goes here" arrow over the blank slot (no pulse — the option glow is
+       the single pulsing cue) */
+    #blank-arrow {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      filter: drop-shadow(0 0 9px rgba(12,228,249,.9));
+    }
+    #blank-arrow.hidden { display: none; }
+
 
     /* ════════════════════════════════════════════
        LEVEL INTRO SCREEN
@@ -1016,6 +1026,11 @@
       <div id="switch-row"></div>
       <!-- Hint overlay: "+N" hop arrows above the switches (populated in JS on reveal) -->
       <div id="hint-arrows" class="hidden"></div>
+      <!-- Tutorial: static arrow pointing at the blank slot to fill ("the answer goes here") -->
+      <svg id="blank-arrow" class="hidden" viewBox="0 0 48 62" width="48" height="62" fill="none" aria-hidden="true">
+        <path d="M24 5 V40" stroke="#a3fffc" stroke-width="7" stroke-linecap="round"/>
+        <path d="M9 30 L24 49 L39 30" stroke="#a3fffc" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <div id="well-done-msg" class="hidden">
         <img id="robot-dance" src="assets/robot dance.webp" alt="robot" />
         <span id="well-done-text">Well done!</span>
@@ -1280,6 +1295,42 @@
       g.gain.setValueAtTime(0.16, ctx.currentTime + i * 0.09);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.09 + 0.28);
       o.start(ctx.currentTime + i * 0.09); o.stop(ctx.currentTime + i * 0.09 + 0.28);
+    });
+  }
+
+  /* happy "ta-da!" fanfare for completing the whole game — a bright rising run that lands
+     on a held major chord, with a sparkly octave on top */
+  function sfxWin() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    const run = [523.25, 659.25, 783.99, 1046.50, 1318.51];   /* C5 E5 G5 C6 E6 */
+    run.forEach((f, i) => {
+      const t = t0 + i * 0.10;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.17, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      o.connect(g); g.connect(masterGain());
+      o.start(t); o.stop(t + 0.5);
+      /* sparkle octave */
+      const s = ctx.createOscillator(), sg = ctx.createGain();
+      s.type = 'sine'; s.frequency.setValueAtTime(f * 2, t);
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.exponentialRampToValueAtTime(0.05, t + 0.02);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      s.connect(sg); sg.connect(masterGain());
+      s.start(t); s.stop(t + 0.32);
+    });
+    /* landing chord (C major) held with a gentle shimmer */
+    const ct = t0 + run.length * 0.10;
+    [523.25, 659.25, 783.99, 1046.50].forEach(f => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(f, ct);
+      g.gain.setValueAtTime(0.0001, ct);
+      g.gain.exponentialRampToValueAtTime(0.12, ct + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, ct + 1.3);
+      o.connect(g); g.connect(masterGain());
+      o.start(ct); o.stop(ct + 1.35);
     });
   }
 
@@ -1728,12 +1779,34 @@
   function tutorialAdvanceArrow(slot) {
     if (currentRow !== 0 || !tutorialArrowsLocked) return;
     const a = _arrows()[slot - 1];
-    if (a) a.classList.add('show', 'glow');
+    /* shown, not glowing — during the tap phase only the correct option pulses */
+    if (a) a.classList.add('show');
+  }
+
+  /* Level-1 tutorial: a static arrow that points at the current blank slot ("goes here").
+     Moves to the next blank slot after each fill; hidden when the row is done. */
+  function showBlankArrow() {
+    if (currentRow !== 0) return;
+    const cfg = ROWS_CONFIG[0];
+    const up = getUserPositions(cfg);
+    const filled = grid[0].length;
+    const el = document.getElementById('blank-arrow');
+    if (!el || filled >= up.length) { hideBlankArrow(); return; }
+    const cx = switchCenterX(up[filled], cfg.seq.length);   /* panel-relative centre of the blank slot */
+    el.style.left = (cx - 24) + 'px';   /* arrow is 48px wide */
+    el.style.top  = '90px';             /* sits just above the slot, tip pointing down into it */
+    el.classList.remove('hidden');
+  }
+  function hideBlankArrow() {
+    const el = document.getElementById('blank-arrow');
+    if (el) el.classList.add('hidden');
   }
 
 
   function armHint() {
-    if (showHint) return;   /* already revealed for this slot */
+    if (showHint) return;         /* already revealed for this slot */
+    if (currentRow === 0) return; /* Level 1 tutorial already guides via the option glow —
+                                     don't also pulse the bulb (only one thing pulses at a time) */
     hintArmed = true;
     const b = document.getElementById('hint-btn');
     if (b) { b.classList.add('armed'); b.classList.remove('used'); }
@@ -2019,6 +2092,7 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
     tutorialGuide = false;          /* correct-option glow only appears at the tutorial prompt */
+    hideBlankArrow();               /* blank-slot arrow appears with the tutorial prompt */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
@@ -2104,7 +2178,10 @@
               /* the answer-slot +2 arrows are NOT shown yet — each one proceeds in
                  (tutorialAdvanceArrow) as the player fills its slot correctly */
               /* glow the correct option to guide the tap (moves to the next one automatically) */
-              queueAction((done) => { tutorialGuide = true; renderQuestion(); done(); });
+              queueAction((done) => {
+                _arrows().forEach(a => a.classList.remove('glow'));   /* arrows go static — only the correct option pulses now */
+                tutorialGuide = true; renderQuestion(); showBlankArrow(); done();
+              });
             } else {
               queueBotText('Tap the correct switch.', voiceTapCorrect);
             }
@@ -2137,6 +2214,7 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
     tutorialGuide = false;          /* the correct-option glow is tutorial-only */
+    hideBlankArrow();
     resetHint();   /* clear any bulb glow / hop arrows from the previous level */
     document.getElementById('hint-btn').classList.remove('hb-hidden');   /* bulb stays (chrome persists) */
     const botBar = document.getElementById('bot-bar');
@@ -2188,6 +2266,8 @@
       /* Level-1 tutorial: the guide glow follows the correct option automatically on the
          next renderQuestion; just switch it off once the row is complete */
       if (currentRow === 0 && grid[currentRow].length >= getUserPositions(cfg).length) tutorialGuide = false;
+      /* move the blank-slot arrow to the next empty slot (or hide it when the row is done) */
+      if (currentRow === 0) showBlankArrow();
 
       if (grid[currentRow].length >= getUserPositions(cfg).length) {
         _setOptionsLock(true);
@@ -2375,6 +2455,9 @@
 
   /* final screen: play the end video, reveal Play Again when it finishes */
   function playEndVideo() {
+    /* celebrate finishing the whole game: happy "ta-da!" fanfare + a confetti burst, timed
+       to land as the completion screen is revealed (after the blast doors open) */
+    setTimeout(() => { sfxWin(); fireConfetti(); }, 1000);
     const v = document.getElementById('end-video');
     if (!v) { goToTitleWithPlayAgain(); return; }
     try { v.currentTime = 0; } catch (e) {}
@@ -2400,6 +2483,7 @@
     tutorialGuide = false;
     handleStart._busy = false;   /* allow Play Again */
     resetHint();
+    hideBlankArrow();
     initGrid();
   }
 

@@ -36,7 +36,7 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
 | `#screen-intro` | Title image + **PLAY** button (first launch) OR **Play Again** button (after a completed run). The tap unlocks Web Audio. |
 | `#screen-level` | Level intro markup (currently **unused** — Start goes straight to gameplay) |
 | `#screen-question` | Main gameplay |
-| `#screen-complete` | Just the completion **video**; when it ends the game returns to the title and reveals **Play Again** (`goToTitleWithPlayAgain`) |
+| `#screen-complete` | Completion **video** + a **happy `sfxWin` fanfare & confetti burst** as it appears; when the video ends the game returns to the title and reveals **Play Again** (`goToTitleWithPlayAgain`) |
 | `#transition` | Sci‑fi **blast-door** transition between levels |
 
 ---
@@ -125,6 +125,14 @@ panel → option tiles pop in. Each beat has its own sound.
      and **follows to the next correct option** after each pick (12 → 14 → 16) automatically
      (each render re-computes the correct answer), then switches off when the level is solved.
      Level 1 only; it does not affect scoring.
+  6. A **static downward arrow** (`#blank-arrow`, `showBlankArrow`) points at the current
+     blank slot ("the answer goes here"). It appears with the tap prompt, moves to the next
+     empty slot after each pick, and hides when the row is done. It does **not** pulse.
+  - **Only one thing pulses at a time.** When the option glow turns on (tap phase) the +2
+    arrows go **static** (glow removed) so only the option pulses; and the hint bulb never
+    arms on Level 1 (`armHint` early-returns when `currentRow === 0`) — the tutorial glow is
+    the sole attention cue. (On levels 2–4 the bulb pulses alone after 2 wrongs, and the
+    revealed-hint option glow pulses alone.)
 - On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
   Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
   covers every correct answer across all four levels; any unmapped number silently skips.
@@ -133,10 +141,11 @@ panel → option tiles pop in. Each beat has its own sound.
 hover, click, correct, wrong, row-complete, entrance pops, panel power-on, options
 deploy whoosh, power-down/up (transition), bot-bar open/close, switch-appear,
 **switch-flip-ON for a correct pick (`sfxSwitchOn` — clunk + upward toggle + electric
-spark)**, talk blips, the **current-flow surge**, and **menu-button hover/press** (PLAY
-and Play Again click like the tiles). The wrong-answer SFX is a **soft two-note triangle
-"aw"** (not a harsh buzz). Optional number-voice `.ogg` files are referenced and degrade
-gracefully if missing.
+spark)**, talk blips, the **current-flow surge**, **menu-button hover/press** (PLAY
+and Play Again click like the tiles), and a **happy "ta-da!" win fanfare (`sfxWin`) on
+completing the whole game — plays with an extra confetti burst**. The wrong-answer SFX is a
+**soft two-note triangle "aw"** (not a harsh buzz). Optional number-voice `.ogg` files are
+referenced and degrade gracefully if missing.
 - **No background music** — the game runs on SFX only (the synth ambient BGM was removed).
   The completion `end-video.webm` still carries its own audio.
 
