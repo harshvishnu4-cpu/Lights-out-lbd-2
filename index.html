@@ -484,15 +484,18 @@
       animation: optTilePop 0.95s cubic-bezier(0.34,1.5,0.5,1) both;
     }
 
-    /* Inactivity nudge — the options bounce (in a wave) to draw an idle player back */
+    /* Inactivity nudge — the options bounce (in a wave) to draw an idle player back.
+       One cycle = a double-hop (~0.8s) then a rest (~0.6s); repeated 4× so the nudge
+       plays for ~5.6s each time it triggers. */
     @keyframes idleBounce {
-      0%, 100% { transform: translateY(0); }
-      35%      { transform: translateY(-18px); }
-      55%      { transform: translateY(0); }
-      72%      { transform: translateY(-8px); }
-      88%      { transform: translateY(0); }
+      0%   { transform: translateY(0); }
+      22%  { transform: translateY(-18px); }
+      35%  { transform: translateY(0); }
+      46%  { transform: translateY(-8px); }
+      57%  { transform: translateY(0); }
+      100% { transform: translateY(0); }
     }
-    #options-area.idle-nudge .sw { animation: idleBounce 0.9s cubic-bezier(0.3,1,0.5,1); }
+    #options-area.idle-nudge .sw { animation: idleBounce 1.4s cubic-bezier(0.3,1,0.5,1) 4; }
     #options-area.idle-nudge .sw:nth-child(1) { animation-delay: 0s; }
     #options-area.idle-nudge .sw:nth-child(2) { animation-delay: 0.07s; }
     #options-area.idle-nudge .sw:nth-child(3) { animation-delay: 0.14s; }
@@ -1843,7 +1846,7 @@
       if (!rowFull) {
         optArea.classList.remove('idle-nudge'); void optArea.offsetWidth;   /* restart the animation */
         optArea.classList.add('idle-nudge');
-        setTimeout(() => optArea.classList.remove('idle-nudge'), 1100);
+        setTimeout(() => optArea.classList.remove('idle-nudge'), 5900);   /* 4×1.4s bounce loop + stagger */
         try { sfxHover(); } catch (e) {}   /* soft blip to draw attention */
       }
     }
