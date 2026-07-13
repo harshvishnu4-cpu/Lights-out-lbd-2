@@ -597,15 +597,6 @@
       50%     { filter: drop-shadow(0 0 20px rgba(12,228,249,1)) brightness(1.25); }
     }
 
-    /* Tutorial: static "goes here" arrow over the blank slot (no pulse — the option glow is
-       the single pulsing cue) */
-    #blank-arrow {
-      position: absolute;
-      z-index: 5;
-      pointer-events: none;
-      filter: drop-shadow(0 0 9px rgba(12,228,249,.9));
-    }
-    #blank-arrow.hidden { display: none; }
 
 
     /* ════════════════════════════════════════════
@@ -1026,11 +1017,6 @@
       <div id="switch-row"></div>
       <!-- Hint overlay: "+N" hop arrows above the switches (populated in JS on reveal) -->
       <div id="hint-arrows" class="hidden"></div>
-      <!-- Tutorial: static arrow pointing at the blank slot to fill ("the answer goes here") -->
-      <svg id="blank-arrow" class="hidden" viewBox="0 0 48 62" width="48" height="62" fill="none" aria-hidden="true">
-        <path d="M24 5 V40" stroke="#a3fffc" stroke-width="7" stroke-linecap="round"/>
-        <path d="M9 30 L24 49 L39 30" stroke="#a3fffc" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
       <div id="well-done-msg" class="hidden">
         <img id="robot-dance" src="assets/robot dance.webp" alt="robot" />
         <span id="well-done-text">Well done!</span>
@@ -1085,6 +1071,11 @@
   const voiceTapCorrect = new Audio('audio/tap the correct switch .ogg');
   const voiceUhOh       = new Audio('audio/Uh-oh! Try again!.ogg');
   const voiceHint       = new Audio("audio/Check the pattern again.ogg");
+
+  /* ── Current-flow SFX (real recordings) — a sharp zap + a sustained energy surge that
+     play when the completed pattern powers the circuit ── */
+  const sndElectricity  = new Audio('audio/electricity.mp3'); sndElectricity.volume = 0.9;
+  const sndEnergy       = new Audio('audio/energy.mp3');       sndEnergy.volume      = 0.75;
 
   /* ── Spoken-number clips (all the numbers we have audio/<n>.ogg files for) ── */
   const NUMBER_VOICE_FILES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 25, 30, 35];
@@ -1589,59 +1580,17 @@
     o2.start(t0 + 0.05); o2.stop(t0 + 0.55);
   }
 
-  /* current surge — loud electric power-up that flows through the vent + pipes (attention grabber).
-     Routed direct to destination (bypassing the master limiter) so it punches through clearly. */
+  /* current surge — the recorded zap + energy-surge SFX that play as the completed pattern
+     powers the circuit (current flows through the vent + pipes). The energy clip is long
+     (~12s), so `stopCurrentFlow` cuts it when the level transitions out. */
   function sfxCurrentFlow() {
-    const ctx = ac(), t0 = ctx.currentTime;
-    const out = ctx.createGain(); out.gain.value = 1.0; out.connect(ctx.destination);
-
-    /* low-end impact whoomp for body */
-    const lo = ctx.createOscillator(), lg = ctx.createGain();
-    lo.type = 'sine';
-    lo.frequency.setValueAtTime(95, t0);
-    lo.frequency.exponentialRampToValueAtTime(190, t0 + 0.28);
-    lg.gain.setValueAtTime(0.0001, t0);
-    lg.gain.exponentialRampToValueAtTime(0.5, t0 + 0.05);
-    lg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
-    lo.connect(lg); lg.connect(out);
-    lo.start(t0); lo.stop(t0 + 0.52);
-
-    /* rising buzzy surge — loud and sustained */
-    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(150, t0);
-    o.frequency.exponentialRampToValueAtTime(900, t0 + 0.5);
-    f.type = 'bandpass'; f.Q.value = 1.8;
-    f.frequency.setValueAtTime(450, t0);
-    f.frequency.exponentialRampToValueAtTime(2900, t0 + 0.5);
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.42, t0 + 0.07);
-    g.gain.setValueAtTime(0.42, t0 + 0.5);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95);
-    o.connect(f); f.connect(g); g.connect(out);
-    o.start(t0); o.stop(t0 + 0.98);
-
-    /* electric crackle bursts */
-    [0, 0.13, 0.28, 0.44, 0.6].forEach(t => {
-      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.045, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.005));
-      const s = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), cg = ctx.createGain();
-      s.buffer = buf; bp.type = 'highpass'; bp.frequency.value = 2400; cg.gain.value = 0.5;
-      s.connect(bp); bp.connect(cg); cg.connect(out);
-      s.start(t0 + t);
+    [sndElectricity, sndEnergy].forEach(s => {
+      try { s.pause(); s.currentTime = 0; } catch (e) {}
+      s.play().catch(() => {});
     });
-
-    /* bright confirm shimmer at the end */
-    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
-    o2.type = 'sine';
-    o2.frequency.setValueAtTime(1250, t0 + 0.45);
-    o2.frequency.exponentialRampToValueAtTime(1950, t0 + 0.78);
-    g2.gain.setValueAtTime(0.0001, t0 + 0.45);
-    g2.gain.exponentialRampToValueAtTime(0.22, t0 + 0.55);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
-    o2.connect(g2); g2.connect(out);
-    o2.start(t0 + 0.45); o2.stop(t0 + 0.9);
+  }
+  function stopCurrentFlow() {
+    [sndElectricity, sndEnergy].forEach(s => { try { s.pause(); s.currentTime = 0; } catch (e) {} });
   }
 
   /* ── Scale canvas to fit any viewport (letterboxed, aspect-preserved) ── */
@@ -1775,31 +1724,21 @@
     const arrows = _arrows();
     for (let i = from; i <= to && i < arrows.length; i++) if (arrows[i]) arrows[i].classList.add('glow');
   }
-  /* Level-1 tutorial: reveal the +2 arrow that hops INTO the just-filled slot (it "proceeds") */
-  function tutorialAdvanceArrow(slot) {
+  /* Level-1 tutorial: glow the "+2" hop ARC that points INTO the current blank slot — the
+     "answer goes here" guide (an arrow arc, not a plain arrow). It clears every other arc's
+     glow first so only this one pulses (single guide). The arc into the FIRST blank is already
+     revealed in the opening one-by-one sequence, so at the tap prompt this only switches its
+     glow on (no pop). After each correct pick it advances the glow (and reveals, if needed) the
+     arc into the next blank slot. */
+  function showBlankArc() {
     if (currentRow !== 0 || !tutorialArrowsLocked) return;
-    const a = _arrows()[slot - 1];
-    /* shown, not glowing — during the tap phase only the correct option pulses */
-    if (a) a.classList.add('show');
-  }
-
-  /* Level-1 tutorial: a static arrow that points at the current blank slot ("goes here").
-     Moves to the next blank slot after each fill; hidden when the row is done. */
-  function showBlankArrow() {
-    if (currentRow !== 0) return;
-    const cfg = ROWS_CONFIG[0];
-    const up = getUserPositions(cfg);
+    const arrows = _arrows();
+    arrows.forEach(a => a.classList.remove('glow'));   /* only the blank arc glows (single pulse) */
+    const up = getUserPositions(ROWS_CONFIG[0]);
     const filled = grid[0].length;
-    const el = document.getElementById('blank-arrow');
-    if (!el || filled >= up.length) { hideBlankArrow(); return; }
-    const cx = switchCenterX(up[filled], cfg.seq.length);   /* panel-relative centre of the blank slot */
-    el.style.left = (cx - 24) + 'px';   /* arrow is 48px wide */
-    el.style.top  = '90px';             /* sits just above the slot, tip pointing down into it */
-    el.classList.remove('hidden');
-  }
-  function hideBlankArrow() {
-    const el = document.getElementById('blank-arrow');
-    if (el) el.classList.add('hidden');
+    if (filled >= up.length) return;      /* row complete — no blank left */
+    const a = arrows[up[filled] - 1];     /* arc hopping into the current blank slot */
+    if (a) a.classList.add('show', 'glow');   /* glow it so it clearly guides the next blank */
   }
 
 
@@ -1846,6 +1785,7 @@
 
   /* Blast-door transition: doors slide shut, swap the screen behind them, slide open */
   function playTransition(swap) {
+    stopCurrentFlow();                               /* cut the long energy-surge clip before leaving */
     const t = document.getElementById('transition');
     t.classList.remove('hidden', 'closed');
     void t.offsetWidth;
@@ -2032,9 +1972,9 @@
     cfg.options.forEach(opt => {
       const isCorrect      = opt === correct;
       const isWrongOption  = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
-      const cls            = isWrongOption ? 'wrong-option'
-                           : (showHint || tutorialGuide) && isCorrect ? 'hint'
-                           : 'option';
+      /* options never glow now — the tutorial guides with the glowing +2 arc into the blank
+         slot instead, and the bulb hint screen just shows the +2 arrows */
+      const cls            = isWrongOption ? 'wrong-option' : 'option';
       optArea.appendChild(makeSw(opt, cls, isWrongOption ? null : () => handleAnswer(opt)));
     });
   }
@@ -2092,7 +2032,6 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
     tutorialGuide = false;          /* correct-option glow only appears at the tutorial prompt */
-    hideBlankArrow();               /* blank-slot arrow appears with the tutorial prompt */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
@@ -2149,11 +2088,8 @@
           botBar.classList.remove('bar-hidden');
           void botBar.offsetWidth;
           botBar.classList.add('bar-reveal');
-          /* bulb appears with the bar: fade in (hb-hidden removed) + a pop-in bounce */
-          const _hb = document.getElementById('hint-btn');
-          _hb.classList.remove('hb-hidden', 'hb-reveal');
-          void _hb.offsetWidth;
-          _hb.classList.add('hb-reveal');
+          /* NOTE: the hint bulb stays hidden during Level 1 (the tutorial); it first appears
+             on Level 2 when the real game starts (see loadLevelInPlace) */
           sfxBarOpen();
           setTimeout(() => {
             if (currentRow === 0) {
@@ -2164,24 +2100,22 @@
               /* read the prefilled numbers aloud (2, 4, 6, 8, 10), highlighting each */
               queueAction((done) => readPattern(ROWS_CONFIG[0], done));
               queueBotText('We are adding 2 at each step.');
-              /* show the +2 hop arrows over the read pattern, one by one */
+              /* show the +2 hop arrows one by one — the 4 over the read pattern PLUS the arc
+                 that hops into the first blank slot (arc 4), so the blank arc reveals as part of
+                 the same animated sequence instead of popping in on its own at the prompt */
               queueAction((done) => {
                 buildHintArrows(ROWS_CONFIG[0]);
                 document.getElementById('hint-arrows').classList.remove('hidden');
                 tutorialArrowsLocked = true;   /* keep the arrows up for the rest of Level 1 */
-                revealArrowsSeq(0, 3, 620, done);
+                revealArrowsSeq(0, 4, 620, done);
               });
               queueBotText('We keep adding the same number!');
-              /* glow all the +2 arrows together */
+              /* glow the 4 pattern arcs together (the blank arc stays static for now) */
               queueAction((done) => { glowArrows(0, 3); setTimeout(done, 900); });
               queueBotText('Tap the correct switch to continue the pattern.', voiceTapCorrect);
-              /* the answer-slot +2 arrows are NOT shown yet — each one proceeds in
-                 (tutorialAdvanceArrow) as the player fills its slot correctly */
-              /* glow the correct option to guide the tap (moves to the next one automatically) */
-              queueAction((done) => {
-                _arrows().forEach(a => a.classList.remove('glow'));   /* arrows go static — only the correct option pulses now */
-                tutorialGuide = true; renderQuestion(); showBlankArrow(); done();
-              });
+              /* the blank arc is already on screen — `showBlankArc` just moves the glow onto it
+                 (clearing the pattern-arc glows) so it becomes the single pulsing guide; no pop */
+              queueAction((done) => { showBlankArc(); done(); });
             } else {
               queueBotText('Tap the correct switch.', voiceTapCorrect);
             }
@@ -2214,9 +2148,15 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
     tutorialGuide = false;          /* the correct-option glow is tutorial-only */
-    hideBlankArrow();
     resetHint();   /* clear any bulb glow / hop arrows from the previous level */
-    document.getElementById('hint-btn').classList.remove('hb-hidden');   /* bulb stays (chrome persists) */
+    /* the hint bulb first appears now (Level 2 = game start after the tutorial) — pop it in
+       the first time; on later levels it's already visible so it just stays */
+    const _hb = document.getElementById('hint-btn');
+    if (_hb.classList.contains('hb-hidden')) {
+      _hb.classList.remove('hb-hidden', 'hb-reveal');
+      void _hb.offsetWidth;
+      _hb.classList.add('hb-reveal');
+    }
     const botBar = document.getElementById('bot-bar');
     botBar.classList.remove('bar-hidden');     /* the text bar stays */
     botBar.style.visibility = 'visible';
@@ -2261,13 +2201,11 @@
       resetHint();   /* clear bulb glow + hop arrows now that this slot is solved */
       streak++; score += pts;
       grid[currentRow] = [...grid[currentRow], val];
-      /* Level-1 tutorial: the +2 arrow proceeds onto the slot the player just filled */
-      tutorialAdvanceArrow(getUserPositions(cfg)[grid[currentRow].length - 1]);
       /* Level-1 tutorial: the guide glow follows the correct option automatically on the
          next renderQuestion; just switch it off once the row is complete */
       if (currentRow === 0 && grid[currentRow].length >= getUserPositions(cfg).length) tutorialGuide = false;
-      /* move the blank-slot arrow to the next empty slot (or hide it when the row is done) */
-      if (currentRow === 0) showBlankArrow();
+      /* reveal the +2 arc that points into the next blank slot (guides where the answer goes) */
+      if (currentRow === 0) showBlankArc();
 
       if (grid[currentRow].length >= getUserPositions(cfg).length) {
         _setOptionsLock(true);
@@ -2483,7 +2421,6 @@
     tutorialGuide = false;
     handleStart._busy = false;   /* allow Play Again */
     resetHint();
-    hideBlankArrow();
     initGrid();
   }
 

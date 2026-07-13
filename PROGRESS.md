@@ -61,13 +61,14 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
   and the switch panel doesn't react (no vent flash, no panel shake), and **no spoken line
   is replayed** (the bot text stays put) so the player can immediately try again. After 2
   wrongs the hint bulb still glows (silently). No red anywhere.
-- **Hint** (Figma `node 1009-2060`): the yellow bulb button (right end of the bot bar) sits
-  **plain/quiet by default** (no glow, no pulse). Only after **2** wrong taps does it become
-  `armed` → **bright, pulsing + glowing** (`hintArmed`: scale + yellow glow) to grab focus.
-  Tapping it reveals the *hint screen*: the pattern step shown
-  as **"+N" hop arrows** above every switch pair, plus the correct option glowing. The bulb
-  then dims (`used`); it re-arms if the player gets stuck on a later slot. Hint state resets
-  on each new slot / level / restart (`resetHint`).
+- **Hint** (Figma `node 1009-2060`): the yellow bulb button (right end of the bot bar) is
+  **hidden during the Level 1 tutorial** and first appears on **Level 2** (game start), with a
+  pop-in (`loadLevelInPlace`). It sits **plain/quiet by default** (no glow, no pulse); only
+  after **2** wrong taps does it become `armed` → **bright, pulsing + glowing** (`hintArmed`:
+  scale + yellow glow). Tapping it reveals the *hint screen*: just the **"+N" hop arrows**
+  above the switch pairs — it does **not** glow the option placeholders. The bulb then dims
+  (`used`); it re-arms if the player gets stuck again. Hint state resets on each new slot /
+  level / restart (`resetHint`).
   - Art is **picked from `assets/`**: the bulb button is `assets/hint-yellow.svg` (yellow
     bulb + border), and the hop-arrow step is baked into each PNG:
     `arrow arc.png` = +2, `arrow arc 3.png` = +3, `arrow arc 2.png` = +5 — mapped to the
@@ -97,7 +98,10 @@ panel → option tiles pop in. Each beat has its own sound.
 - Power button: **red** (off) → **green** (on) + pulse when the pattern is complete.
 - On completion the panel border turns **green** (Figma success screen), the **vent
   bars flow green** (left→right toward the pipe), then a **green current** sweeps
-  along the pipes — accompanied by an electric **surge SFX**. Held ~2.4s.
+  along the pipes — accompanied by the recorded current-flow SFX (`sfxCurrentFlow`
+  plays `audio/electricity.mp3`, a sharp zap, layered with `audio/energy.mp3`, a
+  sustained ~12s surge). The long energy clip is cut by `stopCurrentFlow()` inside
+  `playTransition` so it never bleeds into the next level. Held ~2.4s.
 
 ### Celebration & transition
 - "Well done!" with a dancing robot, then a **blast-door** power-down/up transition
@@ -111,28 +115,29 @@ panel → option tiles pop in. Each beat has its own sound.
   1. "Let us start fixing the switches." → "These switches are in a pattern." → "Let us
      read the pattern together." — `readPattern` highlights each prefilled switch
      left-to-right and speaks its number (`read-pop` + `NUMBER_VOICES`: 2, 4, 6, 8, 10).
-  2. "We are adding 2 at each step." — the `+2` hop arrows over the read pattern
-     (`revealArrowsSeq(0,3)`) pop in **one by one**.
-  3. "We keep adding the same number!" — `glowArrows(0,3)` makes them **pulse together**.
-  4. "Tap the correct switch to continue the pattern." — the answer-slot arrows are **not**
-     shown yet. Each `+2` arrow **proceeds onto the slot the player just filled**, one per
-     correct pick (`tutorialAdvanceArrow` in `handleAnswer`), so the arrow advances across
-     the answers as the pattern is continued.
+  2. "We are adding 2 at each step." — the `+2` hop arrows pop in **one by one**
+     (`revealArrowsSeq(0,4)`): the 4 over the read pattern **plus the arc into the first blank
+     slot**, so the blank arc reveals as part of the same animated sequence (it does **not**
+     pop in on its own later).
+  3. "We keep adding the same number!" — `glowArrows(0,3)` makes the 4 pattern arcs **pulse
+     together** (the blank arc stays static for now).
+  4. "Tap the correct switch to continue the pattern." — the pattern-arc glows switch off and
+     the **already-visible +2 arc into the first blank slot lights up & glows** as the guide
+     (`showBlankArc` just moves the glow onto it — no pop). The glow advances to the arc into
+     the next blank slot on each correct pick, so it walks across the answer slots.
   - The tutorial arrows stay up for the whole level (`tutorialArrowsLocked` makes
     `resetHint` skip clearing them until the level is left).
-  5. A **guide glow** on the correct option marks what to tap (`tutorialGuide` flag → the
-     `.sw.hint` cyan glow in `renderQuestion`). It appears once the tutorial prompt is reached
-     and **follows to the next correct option** after each pick (12 → 14 → 16) automatically
-     (each render re-computes the correct answer), then switches off when the level is solved.
-     Level 1 only; it does not affect scoring.
-  6. A **static downward arrow** (`#blank-arrow`, `showBlankArrow`) points at the current
-     blank slot ("the answer goes here"). It appears with the tap prompt, moves to the next
-     empty slot after each pick, and hides when the row is done. It does **not** pulse.
-  - **Only one thing pulses at a time.** When the option glow turns on (tap phase) the +2
-    arrows go **static** (glow removed) so only the option pulses; and the hint bulb never
-    arms on Level 1 (`armHint` early-returns when `currentRow === 0`) — the tutorial glow is
-    the sole attention cue. (On levels 2–4 the bulb pulses alone after 2 wrongs, and the
-    revealed-hint option glow pulses alone.)
+  5. The **+2 hop ARC that points into the current blank slot** is the tap guide
+     (`showBlankArc` — an arrow *arc*, not a plain arrow). At the tap prompt it is revealed and
+     **glows** ("the answer goes HERE, +2"), while the pattern arcs behind it stay static. After
+     each correct pick the glow **moves to the arc into the next blank slot** automatically, then
+     clears when the level is solved. Level 1 only; it does not affect scoring. The options
+     themselves **no longer glow** — the glowing arc at the blank is the single guide.
+  - **Only one thing pulses at a time.** The pattern arcs are static; only the single +2 arc
+    hopping into the *current* blank slot glows (`showBlankArc` clears every other arc's glow
+    before glowing that one). The hint bulb is hidden on Level 1 entirely, so it can't compete.
+    (On levels 2–4 the bulb pulses alone after 2 wrongs; the revealed hint shows only arcs — no
+    option glow.)
 - On a correct tap the placed number is **spoken** (`playNumberVoice` → `audio/<n>.ogg`).
   Clips are present for 1–16, 18, 20, 21, 24, 25, 30, 35 (`NUMBER_VOICE_FILES`), which
   covers every correct answer across all four levels; any unmapped number silently skips.
@@ -194,4 +199,5 @@ originals have been removed (converted 2026-07-01 via `sharp` + `ffmpeg-static`;
   the latest Figma.
 - Success: green panel border, **green** vent flow + pipe current (confined to the
   exact pipe shape), held longer and sped up for visibility.
-- Added the **current-flow electric surge SFX** as an attention grabber.
+- Added the **current-flow SFX** (recorded zap `electricity.mp3` + sustained
+  `energy.mp3` surge) as an attention grabber; stopped on level transition.
