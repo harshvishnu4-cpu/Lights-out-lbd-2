@@ -60,7 +60,7 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
   glow pulse + amber spark burst + a soft SFX. The wrong number is **not** placed in a slot
   and the switch panel doesn't react (no vent flash, no panel shake), and **no spoken line
   is replayed** (the bot text stays put) so the player can immediately try again. After 2
-  wrongs the hint bulb still glows (silently). No red anywhere.
+  wrongs the hint bulb glows, with a soft magical shimmer SFX (`sfxHintGlow`). No red anywhere.
 - **Hint** (Figma `node 1009-2060`): the yellow bulb button (right end of the bot bar) is
   **hidden during the Level 1 tutorial** and first appears on **Level 2** (game start), with a
   pop-in (`loadLevelInPlace`). It sits **plain/quiet by default** (no glow, no pulse); only

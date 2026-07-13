@@ -1580,6 +1580,32 @@
     o2.start(t0 + 0.05); o2.stop(t0 + 0.55);
   }
 
+  /* hint bulb starts glowing — a soft magical shimmer to draw attention */
+  function sfxHintGlow() {
+    const ctx = ac(), t0 = ctx.currentTime;
+    [880, 1174].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(masterGain());
+      o.type = 'sine';
+      o.frequency.value = f;
+      const t = t0 + i * 0.1;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.13, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o.start(t); o.stop(t + 0.52);
+    });
+    /* rising sparkle on top */
+    const s = ctx.createOscillator(), sg = ctx.createGain();
+    s.connect(sg); sg.connect(masterGain());
+    s.type = 'triangle';
+    s.frequency.setValueAtTime(1760, t0 + 0.14);
+    s.frequency.exponentialRampToValueAtTime(2637, t0 + 0.42);
+    sg.gain.setValueAtTime(0.0001, t0 + 0.14);
+    sg.gain.exponentialRampToValueAtTime(0.07, t0 + 0.2);
+    sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+    s.start(t0 + 0.14); s.stop(t0 + 0.62);
+  }
+
   /* current surge — the recorded zap + energy-surge SFX that play as the completed pattern
      powers the circuit (current flows through the vent + pipes). The energy clip is long
      (~12s), so `stopCurrentFlow` cuts it when the level transitions out. */
@@ -1749,6 +1775,7 @@
     hintArmed = true;
     const b = document.getElementById('hint-btn');
     if (b) { b.classList.add('armed'); b.classList.remove('used'); }
+    sfxHintGlow();                /* soft magical shimmer as the bulb lights up */
   }
 
   /* clear all hint state — called on new slot / level / reset */
