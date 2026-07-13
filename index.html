@@ -1850,8 +1850,11 @@
     resetIdle();   /* keep watching — nudge again if still idle */
   }
 
-  /* any real activity resets the idle countdown */
-  ['pointerdown', 'pointermove', 'keydown', 'touchstart'].forEach(ev =>
+  /* a real tap/keypress resets the idle countdown — NOT mouse movement, since idly moving
+     the cursor while thinking shouldn't count as "making progress" (that would keep the
+     nudge from ever firing on desktop). resetIdle is also called from renderQuestion so the
+     countdown reliably (re)starts at the top of every turn. */
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
     window.addEventListener(ev, resetIdle, { passive: true }));
 
   /* ── Screen switching ──────────────────────────── */
@@ -2055,6 +2058,7 @@
       const cls            = isWrongOption ? 'wrong-option' : 'option';
       optArea.appendChild(makeSw(opt, cls, isWrongOption ? null : () => handleAnswer(opt)));
     });
+    resetIdle();   /* (re)start the inactivity countdown for this turn */
   }
 
   /* ── Game flow ─────────────────────────────────── */
