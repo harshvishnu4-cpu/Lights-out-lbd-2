@@ -61,6 +61,11 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
   and the switch panel doesn't react (no vent flash, no panel shake), and **no spoken line
   is replayed** (the bot text stays put) so the player can immediately try again. After 2
   wrongs the hint bulb glows, with a soft magical shimmer SFX (`sfxHintGlow`). No red anywhere.
+- **Inactivity nudge**: if the player is idle ~10s during their turn, the 4 option tiles
+  **bounce in a wave** (`idleBounce` / `#options-area.idle-nudge`) with a soft blip to draw
+  them back. Any real input (`pointerdown/move`, `keydown`, `touchstart`) resets the ~10s
+  countdown (`resetIdle`/`idleNudge`). It only fires when the options are tappable and the
+  row isn't full, and is **suppressed while the hint bulb is armed** (one thing pulses at a time).
 - **Hint** (Figma `node 1009-2060`): the yellow bulb button (right end of the bot bar) is
   **hidden during the Level 1 tutorial** and first appears on **Level 2** (game start), with a
   pop-in (`loadLevelInPlace`). It sits **plain/quiet by default** (no glow, no pulse); only
