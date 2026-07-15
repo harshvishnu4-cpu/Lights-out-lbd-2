@@ -67,16 +67,18 @@ Open `index.html` in any modern browser. (For audio to start, the player taps
   (`pointerdown`, `keydown`, `touchstart`) resets the ~10s countdown — **not mouse movement**,
   so idly moving the cursor doesn't cancel it. `resetIdle` is also called at the top of every
   turn from `renderQuestion` so the countdown reliably (re)starts. It only fires when the
-  options are tappable and the row isn't full, and is **suppressed while the hint bulb is
-  armed** (one thing pulses at a time).
+  options are tappable and the row isn't full, is **not shown during the Level 1 tutorial**
+  (`currentRow !== 0` — the +2 arc already guides there), and is **suppressed while the hint
+  bulb is armed** (one thing pulses at a time).
 - **Hint** (Figma `node 1009-2060`): the yellow bulb button (right end of the bot bar) is
-  **hidden during the Level 1 tutorial** and first appears on **Level 2** (game start), with a
-  pop-in (`loadLevelInPlace`). It sits **plain/quiet by default** (no glow, no pulse); only
-  after **2** wrong taps does it become `armed` → **bright, pulsing + glowing** (`hintArmed`:
-  scale + yellow glow). Tapping it reveals the *hint screen*: just the **"+N" hop arrows**
-  above the switch pairs — it does **not** glow the option placeholders. The bulb then dims
-  (`used`); it re-arms if the player gets stuck again. Hint state resets on each new slot /
-  level / restart (`resetHint`).
+  **hidden by default** (never on Level 1). It only appears once the player struggles: after
+  **2** wrong taps on a slot, `armHint` **pops it in** (`hb-reveal`/`hbPopIn` — the same
+  appearance animation) already `armed` → **bright, pulsing + glowing** (`hintArmed`: scale +
+  yellow glow), with the `sfxHintGlow` shimmer. (Guarded by `hintArmed` so later wrong taps
+  don't re-pop or re-play the sound.) Tapping it reveals the *hint screen*: just the **"+N"
+  hop arrows** above the switch pairs — it does **not** glow the option placeholders. The bulb
+  then dims (`used`). `resetHint` **hides it again** (`hb-hidden`) on each new slot / level /
+  restart, so it re-pops the next time the player gets 2 wrongs.
   - Art is **picked from `assets/`**: the bulb button is `assets/hint-yellow.svg` (yellow
     bulb + border), and the hop-arrow step is baked into each PNG:
     `arrow arc.png` = +2, `arrow arc 3.png` = +3, `arrow arc 2.png` = +5 — mapped to the

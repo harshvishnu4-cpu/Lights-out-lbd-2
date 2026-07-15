@@ -1787,19 +1787,27 @@
 
   function armHint() {
     if (showHint) return;         /* already revealed for this slot */
-    if (currentRow === 0) return; /* Level 1 tutorial already guides via the option glow —
-                                     don't also pulse the bulb (only one thing pulses at a time) */
+    if (hintArmed) return;        /* already armed on this slot — don't re-pop / re-play on later wrongs */
+    if (currentRow === 0) return; /* Level 1 tutorial already guides via the +2 arc —
+                                     don't also show the bulb (only one thing pulses at a time) */
     hintArmed = true;
+    /* the bulb is hidden until the player struggles — after 2 wrong taps it POPS IN (same
+       appearance animation as before) already glowing to grab focus */
     const b = document.getElementById('hint-btn');
-    if (b) { b.classList.add('armed'); b.classList.remove('used'); }
-    sfxHintGlow();                /* soft magical shimmer as the bulb lights up */
+    if (b) {
+      b.classList.remove('used', 'hb-hidden', 'hb-reveal');
+      void b.offsetWidth;                        /* restart the pop-in animation */
+      b.classList.add('hb-reveal', 'armed');     /* pop in + start glowing */
+    }
+    sfxHintGlow();                /* soft magical shimmer as the bulb pops in */
   }
 
   /* clear all hint state — called on new slot / level / reset */
   function resetHint() {
     hintArmed = false;
     const b = document.getElementById('hint-btn');
-    if (b) b.classList.remove('armed', 'used');
+    /* hide the bulb again — it only reappears (pops in) once the player gets 2 wrongs */
+    if (b) { b.classList.remove('armed', 'used', 'hb-reveal'); b.classList.add('hb-hidden'); }
     if (tutorialArrowsLocked) return;   /* keep the tutorial's +2 arrows shown through Level 1 */
     const w = document.getElementById('hint-arrows');
     if (w) { w.classList.add('hidden'); w.innerHTML = ''; }
@@ -1836,7 +1844,8 @@
     const canTap = optArea && optArea.style.pointerEvents !== 'none' &&
                    !optArea.classList.contains('hidden-initially') &&
                    !optArea.classList.contains('invisible') &&
-                   (phase === 'question' || phase === 'hint');
+                   (phase === 'question' || phase === 'hint') &&
+                   currentRow !== 0;   /* no nudge during the Level 1 tutorial — the +2 arc guides */
     /* don't fight the armed hint bulb — only one thing pulses at a time */
     const bulbArmed = document.getElementById('hint-btn').classList.contains('armed');
     if (canTap && !bulbArmed) {
@@ -2233,15 +2242,8 @@
     document.getElementById('qrobot').style.opacity = '';
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
     tutorialGuide = false;          /* the correct-option glow is tutorial-only */
-    resetHint();   /* clear any bulb glow / hop arrows from the previous level */
-    /* the hint bulb first appears now (Level 2 = game start after the tutorial) — pop it in
-       the first time; on later levels it's already visible so it just stays */
-    const _hb = document.getElementById('hint-btn');
-    if (_hb.classList.contains('hb-hidden')) {
-      _hb.classList.remove('hb-hidden', 'hb-reveal');
-      void _hb.offsetWidth;
-      _hb.classList.add('hb-reveal');
-    }
+    resetHint();   /* clear the previous level; the bulb stays HIDDEN now and only pops in
+                      (with its appearance animation) after the player gets 2 wrongs on a slot */
     const botBar = document.getElementById('bot-bar');
     botBar.classList.remove('bar-hidden');     /* the text bar stays */
     botBar.style.visibility = 'visible';
