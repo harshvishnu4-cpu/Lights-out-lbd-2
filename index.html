@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Lights Out</title>
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=Bebas+Neue&family=Lilita+One&display=swap" rel="stylesheet" />
+  <!-- inline favicon (a bulb) so the browser never requests a missing /favicon.ico (avoids a 404) -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2306111e'/%3E%3Ccircle cx='16' cy='14' r='7.5' fill='%23FFD23F'/%3E%3Crect x='12.5' y='20' width='7' height='5' rx='1.4' fill='%23FFD23F'/%3E%3C/svg%3E" />
+  <!-- fonts trimmed to only those the UI renders: Exo 2 (body/labels) + Lilita One (tile numbers) -->
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=Lilita+One&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -36,7 +39,6 @@
     @keyframes shake    { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
     @keyframes hintGlow  { 0%,100%{filter:brightness(1)   drop-shadow(0 0 6px rgba(0,229,255,.5));} 50%{filter:brightness(1.15) drop-shadow(0 0 18px rgba(0,229,255,1));} }
     @keyframes pulse    { 0%,100%{filter:brightness(1);}  50%{filter:brightness(1.28) drop-shadow(0 0 18px #4afa7c);} }
-    @keyframes float    { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
 
     /* ════════════════════════════════════════════
        QUESTION SCREEN — Figma layout (node 956:7170)
@@ -617,68 +619,7 @@
 
 
     /* ════════════════════════════════════════════
-       LEVEL INTRO SCREEN
-    ════════════════════════════════════════════ */
-    .level-stage-lbl {
-      font-family: 'Exo 2', sans-serif;
-      font-size: 15px; font-weight: 600;
-      letter-spacing: 8px;
-      color: rgba(0,229,255,.55);
-      text-transform: uppercase;
-      margin-bottom: -12px;
-    }
-    .level-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 110px; letter-spacing: 6px;
-      color: #00e5ff;
-      text-shadow: 0 0 40px rgba(0,229,255,.6), 0 0 80px rgba(0,200,255,.25);
-    }
-    .level-pattern-wrap {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 14px;
-      margin-top: 4px;
-    }
-    .level-pattern-lbl {
-      font-family: 'Exo 2', sans-serif;
-      font-size: 20px; color: rgba(160,190,210,.65);
-    }
-    .level-pattern-tiles {
-      display: flex; align-items: center; gap: 12px;
-    }
-    .level-tile {
-      width: 84px; height: 84px;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(18, 28, 48, 0.82);
-      border: 1.5px solid rgba(0, 210, 230, 0.42);
-      border-radius: 16px;
-      font-family: 'Exo 2', sans-serif;
-      font-size: 46px; font-weight: 800;
-      color: #00d8f0;
-      text-shadow: 0 0 12px rgba(0,210,235,.55);
-    }
-    .level-tile-dots {
-      width: 84px; height: 84px;
-      display: flex; align-items: center; justify-content: center;
-      position: relative;
-      background: rgba(14, 22, 40, 0.65);
-      border: 1.5px solid rgba(0,210,230,.20);
-      border-radius: 16px;
-      font-family: 'Exo 2', sans-serif;
-      font-size: 18px; font-weight: 700;
-      color: rgba(0,210,230,.45);
-      letter-spacing: 3px;
-    }
-    .level-tile-dots::before {
-      content: '';
-      position: absolute;
-      top: 9px; right: 9px;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: rgba(0,210,230,.50);
-    }
-
-    /* ════════════════════════════════════════════
-       INTRO / LEVEL / COMPLETE SCREENS
+       INTRO / COMPLETE SCREENS
     ════════════════════════════════════════════ */
     #screen-intro {
       position: absolute;
@@ -733,16 +674,41 @@
       filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
     }
 
-    .overlay {
-      position: absolute;
-      inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 18px;
-      animation: fadeIn 0.5s ease;
+    /* ── Boot: start button hidden until 100% of assets are local, then pops in ── */
+    .btn-play.boot-hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.4); }
+    .btn-play.btn-pop { animation: btnPopIn 0.62s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes btnPopIn {
+      0%   { opacity: 0; transform: scale(0.4)  translateY(14px); }
+      60%  { opacity: 1; transform: scale(1.12) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1)    translateY(0); }
     }
-
-    .level-float { animation: float 2s ease-in-out infinite; }
+    /* Themed loading bar shown in the PLAY button's place while assets download */
+    #boot-bar-wrap {
+      position: absolute; right: 66px; bottom: 92px;
+      width: 340px; z-index: 2;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      transition: opacity 0.4s ease;
+    }
+    #boot-bar-wrap.boot-gone { opacity: 0; pointer-events: none; }
+    #boot-bar {
+      width: 100%; height: 14px;
+      background: rgba(0,229,255,0.14);
+      border: 2px solid rgba(0,229,255,0.35);
+      border-radius: 9px; overflow: hidden;
+      box-shadow: 0 0 18px rgba(0,229,255,0.25) inset;
+    }
+    #boot-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #00b8c4, #00e5ff);
+      border-radius: 7px;
+      box-shadow: 0 0 12px rgba(0,229,255,0.8);
+      transition: width 0.2s ease;
+    }
+    #boot-bar-text {
+      color: #00e5ff; font-family: 'Exo 2', sans-serif;
+      font-size: 16px; font-weight: 700; letter-spacing: 3px;
+      text-shadow: 0 0 14px rgba(0,229,255,0.55);
+    }
 
     .hidden { display: none !important; }
 
@@ -776,42 +742,6 @@
     /* show only on small portrait screens (phones), where 16:9 would be unplayably small */
     @media (orientation: portrait) and (max-width: 920px) {
       #rotate-hint { display: flex; }
-    }
-
-    /* ── Loading screen ── */
-    #loader {
-      position: fixed; inset: 0; z-index: 2000;
-      background: #06111e;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 24px;
-      font-family: 'Exo 2', sans-serif;
-      transition: opacity 0.45s ease;
-    }
-    #loader.hidden { opacity: 0; pointer-events: none; }
-    .loader-ring {
-      width: 62px; height: 62px;
-      border: 5px solid rgba(0,229,255,0.2);
-      border-top-color: #00e5ff;
-      border-radius: 50%;
-      animation: loaderSpin 0.9s linear infinite;
-    }
-    @keyframes loaderSpin { to { transform: rotate(360deg); } }
-    .loader-bar {
-      width: 260px; height: 8px;
-      background: rgba(0,229,255,0.15);
-      border-radius: 5px; overflow: hidden;
-    }
-    .loader-bar-fill {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, #00b8c4, #00e5ff);
-      border-radius: 5px;
-      transition: width 0.25s ease;
-    }
-    .loader-text {
-      color: #00e5ff; font-size: 19px; font-weight: 700;
-      letter-spacing: 3px;
-      text-shadow: 0 0 16px rgba(0,229,255,.55);
     }
 
     /* ════════════════════════════════════════════
@@ -886,58 +816,6 @@
       display: block;
     }
 
-    #end-panel {
-      position: relative;
-      width: 1776px; height: 900px;
-      background: #041840;
-      border-radius: 24px;
-      animation: greenBorderPulse 1.2s ease-in-out infinite;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 36px 60px;
-    }
-
-    #end-title {
-      display: none;
-      font-family: 'Exo 2', sans-serif;
-      font-size: 80px; font-weight: 900;
-      color: #00e8ff; letter-spacing: 3px;
-      text-shadow: 0 0 40px rgba(0,232,255,.75), 0 0 80px rgba(0,200,255,.4), 0 4px 0 rgba(0,0,0,.5);
-      white-space: nowrap;
-      text-align: center;
-      animation: wellDonePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    }
-
-    #end-rows {
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-      width: 100%;
-      align-items: center;
-      justify-content: center;
-      flex: 1;
-    }
-
-    .end-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-    }
-
-    .end-row .power-btn {
-      width: 96px; height: 96px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .end-row .power-btn.pulsing { animation: pulse 1.2s ease-in-out infinite; }
-
-    .end-row .sw {
-      width: 96px; height: 130px;
-    }
-    .end-row .tile-num { font-size: 58px; }
   </style>
 </head>
 <body>
@@ -946,23 +824,19 @@
 
   <!-- ── INTRO ─────────────────────────────────── -->
   <div id="screen-intro">
-    <img id="title-screen-img" src="assets/title screen.webp" alt="Lights Out" />
-    <button class="btn-play" onclick="handleStart()" aria-label="Play">
-      <img src="assets/play button.svg" alt="Play" />
+    <img id="title-screen-img" data-asset="assets/title screen.webp" alt="Lights Out" />
+    <!-- PLAY starts hidden; the preloader reveals it (pop-in) only at 100% -->
+    <button class="btn-play boot-hidden" onclick="handleStart()" aria-label="Play">
+      <img data-asset="assets/play button.svg" alt="Play" />
     </button>
     <!-- shown on the title screen after the game is completed (replaces PLAY) -->
     <button id="title-play-again" class="hidden" onclick="handleStart()" aria-label="Play Again">
-      <img src="assets/play again.svg" alt="Play Again" />
+      <img data-asset="assets/play again.svg" alt="Play Again" />
     </button>
-  </div>
-
-  <!-- ── LEVEL INTRO ───────────────────────────── -->
-  <div id="screen-level" class="overlay hidden">
-    <div class="level-stage-lbl"></div>
-    <div id="level-name" class="level-title level-float"></div>
-    <div class="level-pattern-wrap">
-      <div class="level-pattern-lbl">pattern:</div>
-      <div id="level-pattern-tiles" class="level-pattern-tiles"></div>
+    <!-- themed loading bar sits where PLAY is, until every asset is local -->
+    <div id="boot-bar-wrap">
+      <div id="boot-bar"><div id="boot-bar-fill"></div></div>
+      <div id="boot-bar-text">LOADING 0%</div>
     </div>
   </div>
 
@@ -970,52 +844,52 @@
   <div id="screen-question" class="hidden">
 
     <!-- Robot -->
-    <div id="qrobot"><img src="assets/figma/robot.webp" alt="robot" /></div>
-    <img id="byte-dance" src="assets/robot dance.webp" alt="" />
+    <div id="qrobot"><img data-asset="assets/figma/robot.webp" alt="robot" /></div>
+    <img id="byte-dance" data-asset="assets/robot dance.webp" alt="" />
 
     <!-- Top text bar (starts empty; text is typed in by the dialogue queue) -->
     <div id="bot-bar">
-      <img class="frame" src="assets/figma/textbox.svg" alt="" />
+      <img class="frame" data-asset="assets/figma/textbox.svg" alt="" />
       <span id="bot-text"></span>
     </div>
 
     <!-- Power button (top-right) -->
-    <img id="power-btn" src="assets/Red button.webp" alt="power" />
+    <img id="power-btn" data-asset="assets/Red button.webp" alt="power" />
 
     <!-- Hint button (bulb) — hidden until the bot bar appears; glows after 2 wrong taps -->
     <button id="hint-btn" class="hb-hidden" aria-label="Show hint">
-      <img src="assets/hint-yellow.svg" alt="Hint" />
+      <img data-asset="assets/hint-yellow.svg" alt="Hint" />
     </button>
 
     <!-- Glowing pipe connectors -->
     <div class="connector cn-h" style="left:1474px;top:423px;width:324.752px;height:69.01px;">
-      <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /></div>
+      <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /></div>
     </div>
     <div class="connector cn-v" style="left:1752px;top:129px;width:69px;height:304px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:304px;height:69px;">
-          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /></div>
+          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /></div>
         </div>
       </div>
     </div>
     <div class="connector cn-v cn-small" style="left:1752px;top:420px;width:69.01px;height:48.713px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:48.713px;height:69.01px;">
-          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.02%;left:-666.67%;top:-135.51%;width:1441.67%;" /></div>
+          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.02%;left:-666.67%;top:-135.51%;width:1441.67%;" /></div>
         </div>
       </div>
     </div>
     <div class="connector opt-pipe" style="left:542px;top:648px;width:69px;height:155px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:155px;height:69px;">
-          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
+          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
         </div>
       </div>
     </div>
     <div class="connector opt-pipe" style="left:1108px;top:648px;width:69px;height:155px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:155px;height:69px;">
-          <div class="cclip"><img src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" src="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
+          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
         </div>
       </div>
     </div>
@@ -1024,7 +898,7 @@
 
     <!-- Main panel -->
     <div id="main-panel">
-      <img id="panel-frame" src="assets/figma/panel.svg" alt="" />
+      <img id="panel-frame" data-asset="assets/figma/panel.svg" alt="" />
       <!-- vent bars overlaid on the panel housing (recolour by game state) -->
       <div class="vent-bars">
         <span class="vent-bar" style="left:701.3px;top:24.8px;width:52.3px;height:19.4px;"></span>
@@ -1035,7 +909,7 @@
       <!-- Hint overlay: "+N" hop arrows above the switches (populated in JS on reveal) -->
       <div id="hint-arrows" class="hidden"></div>
       <div id="well-done-msg" class="hidden">
-        <img id="robot-dance" src="assets/robot dance.webp" alt="robot" />
+        <img id="robot-dance" data-asset="assets/robot dance.webp" alt="robot" />
         <span id="well-done-text">Well done!</span>
       </div>
       <div id="wrong-msg" class="hidden"></div>
@@ -1043,7 +917,7 @@
 
     <!-- Options box -->
     <div id="options-box">
-      <img class="frame" src="assets/figma/options-box.svg" alt="" />
+      <img class="frame" data-asset="assets/figma/options-box.svg" alt="" />
       <div id="options-area"></div>
     </div>
 
@@ -1052,7 +926,7 @@
 
   <!-- ── COMPLETE ──────────────────────────────── -->
   <div id="screen-complete" class="hidden">
-    <video id="end-video" src="assets/end-video.webm" playsinline preload="auto"></video>
+    <video id="end-video" data-asset="assets/end-video.webm" playsinline preload="none"></video>
   </div>
 
   <!-- ── Confetti burst (energy shards / sparks on pattern complete) ── -->
@@ -1074,30 +948,58 @@
   <div class="rotate-sub">Turn sideways to play</div>
 </div>
 
-<!-- ── Loading screen (waits for all assets before the game starts) ── -->
-<div id="loader">
-  <div class="loader-ring"></div>
-  <div class="loader-bar"><div class="loader-bar-fill" id="loader-fill"></div></div>
-  <div class="loader-text">Loading…</div>
-</div>
 
 <!-- GSAP (for the play-button attention effects) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script>
-  /* ── Voice lines ─────────────────────────────────── */
-  const voiceTapCorrect = new Audio('audio/tap the correct switch .ogg');
-  const voiceUhOh       = new Audio('audio/Uh-oh! Try again!.ogg');
-  const voiceHint       = new Audio("audio/Check the pattern again.ogg");
+  /* ── Media formats ───────────────────────────────────────────────────────────────────
+     All media uses efficient, widely-supported open formats:
+       • video  → WebM (VP9 video + Opus audio, yuv420p)   assets/end-video.webm
+       • audio  → Ogg/Opus (64k voice, 96k SFX)            audio/*.ogg
+       • images → WebP (q≈80–85), vectors stay SVG          assets/*.webp, *.svg
+     Browser support: WebM/VP9 + Ogg/Opus play in Chrome, Edge, Firefox, and recent Safari
+     (Safari 14.1+ / macOS 11+ / iOS 14.1+ for Opus & VP9). Older Safari is the only gap. */
+
+  /* ── Asset resolver (filled in by the preloader below) ───────────────────────────────
+     `_assetBlob[path]` holds a local blob: URL once the file is fetched (or the original
+     path as a fallback). `assetURL()` is used for every dynamic src so "loaded == local". */
+  const _assetBlob = {};
+  function assetURL(p) { return _assetBlob[p] || p; }
+
+  /* Audio elements are created WITHOUT a src and with preload="none" so the browser never
+     double-downloads them — the preloader fetches each once and assigns its blob: URL. */
+  const AUDIO_REG = [];
+  function mkAudio(url) { const a = new Audio(); a.preload = 'none'; AUDIO_REG.push({ url: url, el: a }); return a; }
+
+  /* ── Voice-over lines ─────────────────────────────────
+     One recorded clip per dialogue line. The file name is the line text with any trailing
+     "." dropped, + ".ogg" (e.g. "We keep adding the same number!.ogg"). `queueBotText`
+     auto-plays the matching clip, so every narration/prompt/win line is spoken. */
+  const VOICE_LINES = [
+    'Let us start fixing the switches.',
+    'These switches are in a pattern.',
+    'Let us read the pattern together.',
+    'We are adding 2 at each step.',
+    'We keep adding the same number!',
+    'Tap the correct switch to continue the pattern.',
+    'Tap the correct switch.',
+    'Follow the pattern!',
+    'Good job! You fixed these switches.',
+    'Wuhoo! The switches are fixed.',
+    'Well done! All the switches are fixed.'
+  ];
+  const VOICE = {};
+  VOICE_LINES.forEach(t => { VOICE[t] = mkAudio('audio/' + t.replace(/\.$/, '') + '.ogg'); });
 
   /* ── Current-flow SFX (real recordings) — a sharp zap + a sustained energy surge that
      play when the completed pattern powers the circuit ── */
-  const sndElectricity  = new Audio('audio/electricity.mp3'); sndElectricity.volume = 0.9;
-  const sndEnergy       = new Audio('audio/energy.mp3');       sndEnergy.volume      = 0.75;
+  const sndElectricity  = mkAudio('audio/electricity.ogg'); sndElectricity.volume = 0.9;
+  const sndEnergy       = mkAudio('audio/energy.ogg');       sndEnergy.volume      = 0.75;
 
   /* ── Spoken-number clips (all the numbers we have audio/<n>.ogg files for) ── */
   const NUMBER_VOICE_FILES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 25, 30, 35];
   const NUMBER_VOICES = {};
-  NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = new Audio('audio/' + n + '.ogg'); });
+  NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = mkAudio('audio/' + n + '.ogg'); });
 
   /* speak a number when the player places it (silently skips numbers with no clip) */
   function playNumberVoice(n) {
@@ -1121,9 +1023,13 @@
       if (t) { t.classList.remove('read-pop'); void t.offsetWidth; t.classList.add('read-pop'); }
       i++;
       if (snd) {
-        snd.onended = () => { snd.onended = null; setTimeout(next, 180); };
+        /* advance on `ended`, on play-reject, OR a watchdog — never hang the tutorial */
+        let stepped = false, wd = null;
+        const step = (gap) => { if (stepped) return; stepped = true; clearTimeout(wd); snd.onended = null; setTimeout(next, gap); };
+        wd = setTimeout(() => step(180), ((isFinite(snd.duration) && snd.duration > 0) ? snd.duration * 1000 : 1200) + 1500);
+        snd.onended = () => step(180);
         snd.currentTime = 0;
-        snd.play().catch(() => { snd.onended = null; setTimeout(next, 650); });
+        snd.play().catch(() => step(650));
       } else {
         setTimeout(next, 650);   /* no clip for this number → just hold on the highlight */
       }
@@ -1165,9 +1071,10 @@
     const item = _voiceQueue.shift();
     _voicePlaying = true;
     _setOptionsLock(true);
-    let advanced = false;
+    let advanced = false, wd = null;
     const finish = () => {
       if (advanced) return; advanced = true;
+      clearTimeout(wd);
       if (item.onDone) item.onDone();
       _advanceQueue();
     };
@@ -1178,18 +1085,30 @@
     }
     _typeBotText(item.text);
     if (item.audio) {
+      /* Advance on any of three paths so the (options-locked) narration can never wedge:
+         (1) the `ended` event, (2) an `error`/play-reject handler, (3) a watchdog re-armed
+         to the real clip length once metadata loads. */
       item.audio.currentTime = 0;
       item.audio.onended = finish;
-      /* no voice file → advance once the text has typed out + a short read hold */
+      item.audio.onerror = () => setTimeout(finish, item.text.length * 55 + 900);
+      const armWd = () => {
+        clearTimeout(wd);
+        const d = (isFinite(item.audio.duration) && item.audio.duration > 0)
+                  ? item.audio.duration * 1000 : (item.text.length * 55 + 1300);
+        wd = setTimeout(finish, d + 2500);
+      };
+      item.audio.onloadedmetadata = armWd;
+      armWd();
       item.audio.play().catch(() => setTimeout(finish, item.text.length * 55 + 900));
     } else {
       /* narration line with no audio → hold long enough to read */
-      setTimeout(finish, item.text.length * 55 + 1300);
+      wd = setTimeout(finish, item.text.length * 55 + 1300);
     }
   }
 
   function queueBotText(text, audio, onDone) {
-    _voiceQueue.push({ text, audio, onDone });
+    /* auto-play the matching voice-over clip unless an explicit one is passed */
+    _voiceQueue.push({ text, audio: audio || VOICE[text] || null, onDone });
     if (!_voicePlaying) _advanceQueue();
   }
 
@@ -1204,7 +1123,7 @@
     _voicePlaying = false;
     _setOptionsLock(false);
     if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
-    [voiceTapCorrect, voiceUhOh, voiceHint].forEach(a => { a.pause(); a.currentTime = 0; });
+    Object.values(VOICE).forEach(a => { a.pause(); a.currentTime = 0; });
   }
 
   /* ── SFX (Web Audio API — no external files) ─────── */
@@ -1730,7 +1649,7 @@
     wrap.innerHTML = '';
     const count = cfg.seq.length;
     const step  = cfg.seq[1] - cfg.seq[0];
-    const src   = HINT_ARROW_SRC[step] || HINT_ARROW_SRC[2];
+    const src   = assetURL(HINT_ARROW_SRC[step] || HINT_ARROW_SRC[2]);
     const AW    = 120;   /* scaled to fit the band above the switches (~82px tall) */
     for (let i = 0; i < count - 1; i++) {          /* one arrow per gap between switches */
       const mid = switchCenterX(i, count) + SW_PITCH / 2;
@@ -1871,9 +1790,14 @@
 
   /* ── Screen switching ──────────────────────────── */
   function showScreen(name) {
-    ['intro','level','question','complete'].forEach(s =>
+    /* Inactive screens go display:none — their subtrees leave the render/compositing tree
+       entirely, so their GPU textures are released. This is the windowing step, re-applied
+       on every navigation. (There are no 3D-transformed faces anywhere, so backface-visibility
+       ghosting cannot occur.) */
+    ['intro','question','complete'].forEach(s =>
       document.getElementById('screen-' + s).classList.toggle('hidden', s !== name)
     );
+    _setMenuAnims(name === 'intro');   /* pause/release the intro-button layers while occluded */
   }
 
   /* Blast-door transition: doors slide shut, swap the screen behind them, slide open */
@@ -2005,14 +1929,14 @@
 
     /* ── Power button (top-right, separate from row) ── */
     const powerEl = document.getElementById('power-btn');
-    powerEl.src = rowFull ? 'assets/Green button.webp' : 'assets/Red button.webp';
+    powerEl.src = assetURL(rowFull ? 'assets/Green button.webp' : 'assets/Red button.webp');
     powerEl.alt = rowFull ? 'ON' : 'OFF';
     powerEl.classList.toggle('pulsing', rowFull);   /* powers ON (green) when the row is full */
     /* current flows through the pipes the moment the pattern is completed */
     const patternDone = rowFull && !isRowComplete;
     document.getElementById('screen-question').classList.toggle('current-on', patternDone);
     /* main panel border turns green on a correct, completed pattern (Figma success screen) */
-    document.getElementById('panel-frame').src = patternDone ? 'assets/figma/panel-green.svg' : 'assets/figma/panel.svg';
+    document.getElementById('panel-frame').src = assetURL(patternDone ? 'assets/figma/panel-green.svg' : 'assets/figma/panel.svg');
 
     /* ── 7 switch slots ── */
     const stepMs    = SWITCH_STEP_MS;
@@ -2074,26 +1998,9 @@
   }
 
   /* ── Game flow ─────────────────────────────────── */
-  function buildLevelScreen(cfg) {
-    document.getElementById('level-name').textContent = cfg.label.toUpperCase();
-    const tiles = document.getElementById('level-pattern-tiles');
-    tiles.innerHTML = '';
-    cfg.seq.forEach(num => {
-      const t = document.createElement('div');
-      t.className = 'level-tile';
-      t.textContent = num;
-      tiles.appendChild(t);
-    });
-    const dots = document.createElement('div');
-    dots.className = 'level-tile-dots';
-    dots.textContent = '···';
-    tiles.appendChild(dots);
-
-    if (levelTimer) clearTimeout(levelTimer);
-    levelTimer = setTimeout(handleLevelStart, 2500);
-  }
 
   function handleStart() {
+    if (!_preloadDone) return;       /* assets not local yet — ignore early/keyboard/programmatic starts */
     if (handleStart._busy) return;   /* ignore double-taps until a game resets */
     handleStart._busy = true;
     /* unlock the Web Audio context on this user gesture so timed SFX can play later */
@@ -2206,12 +2113,12 @@
               queueBotText('We keep adding the same number!');
               /* glow the 4 pattern arcs together (the blank arc stays static for now) */
               queueAction((done) => { glowArrows(0, 3); setTimeout(done, 900); });
-              queueBotText('Tap the correct switch to continue the pattern.', voiceTapCorrect);
+              queueBotText('Tap the correct switch to continue the pattern.');
               /* the blank arc is already on screen — `showBlankArc` just moves the glow onto it
                  (clearing the pattern-arc glows) so it becomes the single pulsing guide; no pop */
               queueAction((done) => { showBlankArc(); done(); });
             } else {
-              queueBotText('Tap the correct switch.', voiceTapCorrect);
+              queueBotText('Tap the correct switch.');
             }
           }, 450);
         }, 750);
@@ -2236,7 +2143,7 @@
     sq.classList.remove('current-on', 'celebrating', 'intro');
     const panel = document.getElementById('main-panel');
     panel.classList.remove('row-complete', 'well-done-active', 'opening');
-    document.getElementById('panel-frame').src = 'assets/figma/panel.svg';
+    document.getElementById('panel-frame').src = assetURL('assets/figma/panel.svg');
     document.getElementById('well-done-msg').classList.add('hidden');
     document.getElementById('byte-dance').classList.remove('show');
     document.getElementById('qrobot').style.opacity = '';
@@ -2485,11 +2392,38 @@
     setTimeout(() => { sfxWin(); fireConfetti(); }, 1000);
     const v = document.getElementById('end-video');
     if (!v) { goToTitleWithPlayAgain(); return; }
+
+    /* The "Play Again" reveal must NEVER get stuck waiting on the video. Three independent
+       paths lead out: (1) the `ended` event, (2) an `error` handler that first retries the
+       original file URL once (in case the blob failed) then bails, and (3) a watchdog timer
+       (video duration + grace), re-armed once the real duration is known. */
+    let done = false, triedFile = false, wd = null;
+    const finish = () => {
+      if (done) return; done = true;
+      clearTimeout(wd);
+      v.onended = v.onerror = v.onloadedmetadata = null;
+      goToTitleWithPlayAgain();
+    };
+    const armWatchdog = () => {
+      clearTimeout(wd);
+      const durMs = (isFinite(v.duration) && v.duration > 0) ? v.duration * 1000 : 10500;
+      wd = setTimeout(finish, durMs + 4000);   /* duration + a few seconds grace */
+    };
+
     try { v.currentTime = 0; } catch (e) {}
-    /* when the video finishes, go back to the title screen and show Play Again */
-    v.onended = () => { v.onended = null; goToTitleWithPlayAgain(); };
+    v.onended = finish;                                    /* (1) the event */
+    v.onloadedmetadata = () => { if (!done) armWatchdog(); };
+    v.onerror = () => {                                     /* (2) error → retry original file once, else out */
+      if (!triedFile) {
+        triedFile = true;
+        v.src = 'assets/end-video.webm';
+        try { v.load(); v.currentTime = 0; } catch (e) {}
+        const rp = v.play(); if (rp && rp.catch) rp.catch(finish);
+      } else { finish(); }
+    };
+    armWatchdog();                                         /* (3) watchdog */
     const p = v.play();
-    if (p && p.catch) p.catch(() => goToTitleWithPlayAgain());  /* if autoplay is blocked, still proceed */
+    if (p && p.catch) p.catch(() => finish());             /* autoplay blocked → still proceed */
   }
 
   /* reset all game state for a fresh run — does NOT change screens or touch the blast-door
@@ -2523,40 +2457,142 @@
   }
 
 
-  /* ── Boot: preload every asset behind the loading screen, then start ── */
-  const PRELOAD_ASSETS = [
-    'assets/title screen.webp',
-    'assets/play button.svg',
-    'assets/play again.svg',
-    'assets/robot dance.webp',
-    'assets/Red button.webp',
-    'assets/Green button.webp',
-    'assets/background.webp',
-    'assets/figma/robot.webp',
-    'assets/figma/textbox.svg',
-    'assets/figma/panel.svg',
-    'assets/figma/panel-green.svg',
-    'assets/figma/options-box.svg',
-    'assets/figma/connector.webp',
-    'assets/figma/tile.webp',
-    'assets/arrow arc.webp',      /* hint hop: +2 */
-    'assets/arrow arc 3.webp',    /* hint hop: +3 */
-    'assets/arrow arc 2.webp',    /* hint hop: +5 */
-    'assets/hint-yellow.svg',    /* hint (bulb) button */
-  ];
+  /* ── Boot preloader ──────────────────────────────────────────────────────────────────
+     Fetches every referenced asset behind the loading bar with byte-accurate streaming
+     progress, smallest-first, concurrency-limited (5). Each file becomes a local blob: URL
+     (assetURL) so "loaded == local"; <img>/<video>/audio (all preload="none"/no src) are fed
+     their blobs so nothing double-downloads. Failure-safe: any failed / stalled / aborted
+     fetch — or file:// where fetch is blocked — counts as done and the element keeps its
+     original path, so the bar can never wedge below 100%. */
 
-  function preloadAssets(onProgress) {
-    let loaded = 0;
-    const total = PRELOAD_ASSETS.length || 1;
-    return Promise.all(PRELOAD_ASSETS.map(src => new Promise(resolve => {
-      const img = new Image();
-      img.onload = img.onerror = () => { loaded++; if (onProgress) onProgress(loaded / total); resolve(); };
-      img.src = src;
-    })));
+  /* Real on-disk sizes (bytes), generated from the actual files — weights the bar + queue. */
+  const ASSET_SIZES = {
+    "assets/arrow arc.webp": 770, "assets/arrow arc 2.webp": 858, "assets/arrow arc 3.webp": 928,
+    "assets/hint-yellow.svg": 1238, "assets/figma/textbox.svg": 2091, "assets/Green button.webp": 5726,
+    "audio/30.ogg": 6592, "audio/20.ogg": 6622, "assets/Red button.webp": 6820, "audio/10.ogg": 7164,
+    "audio/14.ogg": 7322, "audio/8.ogg": 7751, "audio/6.ogg": 7869, "audio/4.ogg": 7907,
+    "audio/12.ogg": 7962, "audio/15.ogg": 8187, "audio/7.ogg": 8448, "audio/18.ogg": 8678,
+    "audio/electricity.ogg": 8701, "audio/5.ogg": 8863, "audio/2.ogg": 8945, "audio/16.ogg": 9018,
+    "audio/3.ogg": 9085, "audio/24.ogg": 9213, "audio/1.ogg": 9564, "assets/play button.svg": 9585,
+    "audio/21.ogg": 9842, "audio/11.ogg": 10073, "audio/9.ogg": 10109, "audio/13.ogg": 10418,
+    "audio/25.ogg": 10944, "audio/35.ogg": 10948, "assets/figma/options-box.svg": 11520,
+    "assets/figma/panel.svg": 11530, "assets/figma/panel-green.svg": 11531, "assets/figma/connector.webp": 14054,
+    "assets/background.webp": 16230, "audio/Follow the pattern!.ogg": 17102, "audio/Tap the correct switch.ogg": 20734,
+    "assets/play again.svg": 22126, "audio/Let us start fixing the switches.ogg": 26304,
+    "audio/These switches are in a pattern.ogg": 29514, "audio/Let us read the pattern together.ogg": 31143,
+    "audio/We keep adding the same number!.ogg": 31596, "audio/Good job! You fixed these switches.ogg": 33007,
+    "audio/We are adding 2 at each step.ogg": 33516, "audio/Well done! All the switches are fixed.ogg": 34092,
+    "audio/Wuhoo! The switches are fixed.ogg": 34340, "audio/Tap the correct switch to continue the pattern.ogg": 36606,
+    "assets/figma/robot.webp": 43190, "audio/energy.ogg": 99680, "assets/figma/tile.webp": 126848,
+    "assets/title screen.webp": 142274, "assets/robot dance.webp": 254398, "assets/end-video.webm": 789182,
+  };
+  const MANIFEST = Object.keys(ASSET_SIZES);
+
+  /* declared elements ([data-asset]) grouped by the asset they want, so blobs swap in as they land */
+  const _assetEls = {};
+  document.querySelectorAll('[data-asset]').forEach(el => {
+    const p = el.getAttribute('data-asset');
+    (_assetEls[p] = _assetEls[p] || []).push(el);
+  });
+  /* one-time blob error fallback: if a blob: src ever fails to load, revert to the original
+     file URL (and resume playback for videos). Attaches once per element. */
+  function _blobFallback(el, orig, isVideo) {
+    if (el._bfb) return; el._bfb = true;
+    el.addEventListener('error', function () {
+      if (String(el.src).indexOf('blob:') !== 0) return;   /* already reverted to a file URL */
+      el.src = orig;
+      if (isVideo) { try { el.load(); el.play(); } catch (e) {} }
+    });
+  }
+  function _applyAsset(path) {
+    const u = assetURL(path);
+    const isBlob = u.indexOf('blob:') === 0;
+    (_assetEls[path] || []).forEach(el => {
+      /* video error handling lives in playEndVideo; here we guard <img> only */
+      if (isBlob && el.tagName === 'IMG') _blobFallback(el, path, false);
+      if (el.getAttribute('src') !== u) el.src = u;
+    });
+    for (const a of AUDIO_REG) if (a.url === path) {
+      if (isBlob) _blobFallback(a.el, a.url, false);
+      a.el.src = u;
+    }
   }
 
-  let _booted = false;
+  let _preloadDone = false;
+  const _expected = {}, _counted = {};
+  let _totalBytes = 0, _loadedBytes = 0, _lastPct = 0;
+  MANIFEST.forEach(p => { _expected[p] = ASSET_SIZES[p] || 50000; _counted[p] = 0; _totalBytes += _expected[p]; });
+
+  function _renderBar() {
+    let pct = _totalBytes ? _loadedBytes / _totalBytes : 1;
+    if (pct < _lastPct) pct = _lastPct; else _lastPct = pct;   /* monotonic — never goes backwards */
+    pct = Math.max(0, Math.min(1, pct));
+    const f = document.getElementById('boot-bar-fill'); if (f) f.style.width = (pct * 100).toFixed(1) + '%';
+    const t = document.getElementById('boot-bar-text');  if (t) t.textContent = 'LOADING ' + Math.round(pct * 100) + '%';
+  }
+  function _bump(path, n) {
+    const add = Math.max(0, Math.min(n, _expected[path] - _counted[path]));
+    if (add) { _counted[path] += add; _loadedBytes += add; _renderBar(); }
+  }
+  function _settle(path) {   /* on finish (success OR failure) top up to full weight → bar reaches 100% */
+    const room = _expected[path] - _counted[path];
+    if (room > 0) { _counted[path] += room; _loadedBytes += room; _renderBar(); }
+  }
+
+  /* correct MIME for the blob — SVG especially will NOT render from a typeless blob: URL */
+  const _MIME = { webp: 'image/webp', svg: 'image/svg+xml', png: 'image/png', gif: 'image/gif',
+                  webm: 'video/webm', ogg: 'audio/ogg', mp3: 'audio/mpeg' };
+  function _mimeOf(path, res) {
+    const ct = res && res.headers.get('content-type');
+    if (ct && ct.indexOf('octet-stream') < 0) return ct.split(';')[0].trim();
+    return _MIME[path.split('.').pop().toLowerCase()] || 'application/octet-stream';
+  }
+
+  async function _fetchAsset(path) {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 20000);   /* per-transfer abort timeout */
+    try {
+      const res = await fetch(path, { signal: ctrl.signal, cache: 'force-cache' });
+      if (!res.ok) throw 0;
+      const cl = +res.headers.get('content-length');
+      if (cl && cl !== _expected[path]) { _totalBytes += cl - _expected[path]; _expected[path] = cl; }  /* refine */
+      const type = _mimeOf(path, res);
+      let blob;
+      if (res.body && res.body.getReader) {           /* streaming reader → byte-accurate progress */
+        const reader = res.body.getReader(), chunks = [];
+        for (;;) { const r = await reader.read(); if (r.done) break; chunks.push(r.value); _bump(path, r.value.length); }
+        blob = new Blob(chunks, { type: type });
+      } else { blob = await res.blob(); _bump(path, blob.size); }
+      _assetBlob[path] = URL.createObjectURL(blob);
+    } catch (e) {
+      _assetBlob[path] = path;   /* fetch failed / aborted / file:// — keep original path, never block */
+    } finally {
+      clearTimeout(to); _settle(path); _applyAsset(path);
+    }
+  }
+
+  function _startPreload() {
+    const queue = MANIFEST.slice().sort((a, b) => _expected[a] - _expected[b]);   /* smallest-first */
+    const CONC = 5;
+    const worker = async () => { while (queue.length) await _fetchAsset(queue.shift()); };
+    const all = Promise.all(Array.from({ length: CONC }, worker));
+    const failsafe = new Promise(res => setTimeout(res, 25000));   /* global never-hang guard */
+    _renderBar();
+    Promise.race([all, failsafe]).then(_revealPlay);
+  }
+
   /* Smooth GSAP attention effects for the title-screen PLAY button */
+  /* GPU/CPU windowing: the intro buttons run infinite transform+filter tweens (promoted
+     compositing layers). When the intro isn't the visible screen they're occluded, so we
+     pause the tweens and drop `will-change` to release that work — re-armed on return. */
+  const _menuTweens = [];
+  function _setMenuAnims(on) {
+    for (const t of _menuTweens) { try { on ? t.play() : t.pause(); } catch (e) {} }
+    document.querySelectorAll('.btn-play, #title-play-again').forEach(b => {
+      b.style.willChange = on ? 'transform, filter' : 'auto';
+      const img = b.querySelector('img'); if (img) img.style.willChange = on ? 'transform, filter' : 'auto';
+    });
+  }
   function animatePlayButton() {
     if (!window.gsap) return;
     document.querySelectorAll('.btn-play, #title-play-again').forEach(_setupBtnPulse);
@@ -2570,11 +2606,11 @@
     const DEPTH = 'drop-shadow(0 7px 14px rgba(0,16,32,0.55))';
     const PERIOD = 1.05;   /* faster, punchier pulse (breathing + glow share one rhythm) */
 
-    /* bold breathing pulse */
-    gsap.to(img, {
+    /* bold breathing pulse — registered so it can be paused while the intro is occluded */
+    _menuTweens.push(gsap.to(img, {
       scale: 1.11, duration: PERIOD, repeat: -1, yoyo: true,
       ease: 'sine.inOut', transformOrigin: '50% 50%'
-    });
+    }));
 
     /* shaped neon glow that hugs the octagon (drop-shadow on the SVG), pulsing in sync */
     const g = { blur: 16, a: 0.55 };
@@ -2583,10 +2619,10 @@
                          g.a.toFixed(3) + ')) ' + DEPTH;
     };
     paint();
-    gsap.to(g, {
+    _menuTweens.push(gsap.to(g, {
       blur: 46, a: 1.0, duration: PERIOD, repeat: -1, yoyo: true,
       ease: 'sine.inOut', onUpdate: paint
-    });
+    }));
 
     /* smooth hover / press — all eased through GSAP */
     const to = (s, d, ease) => gsap.to(btn, { scale: s, duration: d, ease: ease, overwrite: 'auto' });
@@ -2620,27 +2656,31 @@
     }
   }
 
-  function startGame() {
+  /* reveal the PLAY button (pop-in) once every asset is local (or the failsafe fired) */
+  function _revealPlay() {
     if (_booted) return;
     _booted = true;
-    const loader = document.getElementById('loader');
-    if (loader) loader.classList.add('hidden');
-    initGrid();
-    showScreen('intro');
+    _preloadDone = true;
+    _loadedBytes = _totalBytes; _renderBar();       /* force the bar to a clean 100% */
+    const wrap = document.getElementById('boot-bar-wrap');
+    if (wrap) wrap.classList.add('boot-gone');
+    const play = document.querySelector('.btn-play');
+    if (play) {
+      play.classList.remove('boot-hidden');
+      void play.offsetWidth;
+      play.classList.add('btn-pop');
+      setTimeout(() => play.classList.remove('btn-pop'), 700);   /* free the transform for GSAP hover */
+    }
     animatePlayButton();
-    wireMenuSfx();
   }
 
-  initGrid();   /* set up game state immediately (cheap) */
-  const _fill = document.getElementById('loader-fill');
-  const _fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
-  Promise.race([
-    Promise.all([
-      preloadAssets(p => { if (_fill) _fill.style.width = Math.round(p * 100) + '%'; }),
-      _fontsReady,
-    ]),
-    new Promise(resolve => setTimeout(resolve, 12000)),   /* safety: never hang past 12s */
-  ]).then(startGame);
+  /* boot: game state + intro are live immediately; assets stream in behind the loading bar,
+     and PLAY only appears (guarded) once they're local */
+  let _booted = false;
+  initGrid();
+  showScreen('intro');
+  wireMenuSfx();
+  _startPreload();
 </script>
 </body>
 </html>

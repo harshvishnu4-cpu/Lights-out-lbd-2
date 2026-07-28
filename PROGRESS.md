@@ -9,7 +9,32 @@ theme (robot guide, glowing pipes, power button, energy current).
   (`node 975-16315`).
 - **Stack:** Single file — `index.html` (HTML + CSS + vanilla JS). No build step, no
   dependencies. Fonts (Exo 2, Bebas Neue, Lilita One) load from Google Fonts.
-- **Last updated:** 2026-06-25
+- **Last updated:** 2026-07-15
+
+## Performance & robustness (optimization pass)
+- **Media formats** (all outputs verified smaller than source): `energy.mp3`→`energy.ogg`
+  (385 KB→100 KB) and `electricity.mp3`→`electricity.ogg` (Opus); all 34 voice/number `.ogg`
+  re-encoded Vorbis 96k→Opus 64k; `end-video.webm` re-encoded VP9 2-pass (959 KB→789 KB,
+  visually lossless). Images already WebP. Audio total 1.08 MB→638 KB (−41%).
+- **Preloader** (`_startPreload`): every asset streamed behind a themed loading bar that sits
+  where PLAY is; PLAY is `boot-hidden` until 100% then pops in; `handleStart` is guarded by
+  `_preloadDone`. Byte-accurate progress (streaming readers + Content-Length), monotonic,
+  smallest-first, concurrency 5. Each file becomes a local `blob:` URL (`assetURL`/`_assetBlob`);
+  `<img>`/`<video>` use `data-asset` + swap, audio is `preload="none"` fed by the preloader
+  (no double download), SVG blobs carry `image/svg+xml`. Failure-safe: any failed/aborted/`file://`
+  fetch keeps the original src (revealed in 324 ms on file://); per-transfer + global watchdogs.
+- **Media-driven UI hardened**: `playEndVideo` reveals Play Again via event + `error`(retry
+  original file once) + watchdog(duration+grace); `_advanceQueue` and `readPattern` got the same
+  three-path treatment; blob elements have a one-time revert-to-original `error` fallback.
+- **GPU/compositing**: no 3D transforms/`backface-visibility` exist, and screens are `display:none`
+  (textures released, re-windowed every `showScreen`); the intro's GSAP button tweens pause +
+  `will-change:auto` when the intro is occluded.
+- **Removed**: unreferenced `_a_crop.png` (739 KB), `hint.svg`, `nudge.webp`; the whole dead
+  "level intro" feature (`#screen-level`, `buildLevelScreen`, `.level-*`/`.overlay`/`@keyframes
+  float`); dead end-screen CSS (`#end-panel/#end-title/#end-rows/.end-row`); the Bebas Neue font
+  request; added `.gitignore`; inline favicon (kills the `/favicon.ico` 404).
+- **Verified** (Playwright + local HTTP): all 4 levels crawled, every screen's media healthy,
+  loading bar monotonic under CDP throttling, **zero JS errors, zero 4xx/5xx**.
 
 ---
 
@@ -120,6 +145,11 @@ panel → option tiles pop in. Each beat has its own sound.
 ### Dialogue
 - Bot lines **typewriter** out with soft talk blips; options lock while the bot
   "speaks". Instruction is spoken right when the switches finish appearing.
+- **Every dialogue line has a recorded voice-over** (`VOICE` map, keyed by the exact line
+  text; file = text minus a trailing "." + `.ogg`). `queueBotText` auto-plays the matching
+  clip and advances on its `onended`, so narration paces to the real audio. Covered lines:
+  the 6 Level-1 tutorial lines, the two "Tap the correct switch…" prompts, "Follow the
+  pattern!" (hint), and all 3 win lines. Numbers are spoken separately via `NUMBER_VOICES`.
 - **Level 1 is a full guided tutorial** (levels 2–4 skip straight to "Tap the correct
   switch."). The choreography:
   1. "Let us start fixing the switches." → "These switches are in a pattern." → "Let us
@@ -182,13 +212,13 @@ originals have been removed (converted 2026-07-01 via `sharp` + `ffmpeg-static`;
   (hint "+N" hops), `end-video.webm` (completion video), `play again.svg` (the **Play Again**
   button shown on the title screen after a completed run — same pulse + click-spark as PLAY).
 - SVGs are kept as vectors (converting them to WebP would rasterize and lose crispness).
-- `audio/` — number/voice `.ogg` clips are referenced by name but **not currently
-  present**; the game runs fine without them (synth SFX cover everything).
+- `audio/` — spoken-number `.ogg` clips (1–16, 18, 20, 21, 24, 25, 30, 35) **and** a
+  recorded voice-over clip for every dialogue line are present and wired up. `electricity.mp3`
+  + `energy.mp3` drive the current-flow surge. Synth SFX cover all the non-voice effects.
 
 ---
 
 ## Pending / ideas
-- [ ] Add the number-voice `.ogg` files (or remove the references) for spoken numbers.
 - [ ] On-screen score/streak display (score is tracked but not shown).
 - [ ] Persist player progress / best score (e.g. `localStorage`).
 - [ ] More levels / difficulty curve; optional timer.

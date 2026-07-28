@@ -1,0 +1,19 @@
+# ── Dev tooling / dependencies (never part of the deployed game) ──
+node_modules/
+scratchpad/
+.vscode/
+
+# ── OS / editor junk ──
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# ── Backups ──
+*.bak
+*.orig
+index.html.*
+
+# ── Design / working docs: keep in VCS, but exclude from any production deploy bundle ──
+# (PROGRESS.md is a design doc — don't ship it to the game's public host)
