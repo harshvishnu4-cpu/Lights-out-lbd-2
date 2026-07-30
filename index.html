@@ -62,7 +62,11 @@
       transform-origin: center bottom;
       filter: drop-shadow(0 0 18px rgba(0,220,255,.45));
     }
-    #byte-dance.show { display: block; }   /* the GIF animates itself */
+    #byte-dance.show { display: block; }   /* the animated webp animates itself */
+    /* while Byte is dancing, force the static robot fully out of paint so it can never
+       show through / ghost behind the moving dance sprite (opacity !important beats the
+       entrance animation's fill; visibility removes it from the layer entirely) */
+    #qrobot.robot-hidden { opacity: 0 !important; visibility: hidden; }
     #qrobot img {
       position: absolute;
       left: -61.46%; top: -0.09%;
@@ -656,23 +660,6 @@
       filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
     }
 
-    /* ── Title-screen PLAY AGAIN button (shown after completion; image asset) ── */
-    #screen-intro #title-play-again {
-      position: absolute;
-      right: 66px; bottom: 74px;
-      z-index: 2;
-    }
-    #title-play-again {
-      background: none; border: none; padding: 0; margin: 0; cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      width: 340px; line-height: 0;
-      will-change: transform;
-    }
-    #title-play-again img {
-      width: 340px; height: auto; display: block;
-      will-change: transform, filter;
-      filter: drop-shadow(0 0 16px rgba(12,228,249,0.5)) drop-shadow(0 7px 14px rgba(0,16,32,0.55));
-    }
 
     /* ── Boot: start button hidden until 100% of assets are local, then pops in ── */
     .btn-play.boot-hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.4); }
@@ -828,10 +815,6 @@
     <!-- PLAY starts hidden; the preloader reveals it (pop-in) only at 100% -->
     <button class="btn-play boot-hidden" onclick="handleStart()" aria-label="Play">
       <img data-asset="assets/play button.svg" alt="Play" />
-    </button>
-    <!-- shown on the title screen after the game is completed (replaces PLAY) -->
-    <button id="title-play-again" class="hidden" onclick="handleStart()" aria-label="Play Again">
-      <img data-asset="assets/play again.svg" alt="Play Again" />
     </button>
     <!-- themed loading bar sits where PLAY is, until every asset is local -->
     <div id="boot-bar-wrap">
@@ -991,13 +974,33 @@
   const VOICE = {};
   VOICE_LINES.forEach(t => { VOICE[t] = mkAudio('audio/' + t.replace(/\.$/, '') + '.ogg'); });
 
+  /* ── Title voice-over ─────────────────────────────────────────────────────────────────
+     Byte greets the player on the title screen. Browsers block audio before a user gesture,
+     so it's armed to fire on the FIRST pointer-down while the title is showing (that same tap
+     unlocks audio). Re-armed on every title entry. PLACEHOLDER clip for now — reuses the
+     already-preloaded "Follow the pattern!" line; swap TITLE_VO_SRC for a real title clip
+     (e.g. a "Lights Out!" recording) when available. */
+  const TITLE_VO_SRC = 'audio/Follow the pattern!.ogg';
+  const voiceTitle = new Audio();
+  voiceTitle.preload = 'none';
+  let _titleVOPending = false;
+  function armTitleVO() { _titleVOPending = true; }
+  window.addEventListener('pointerdown', () => {
+    if (!_titleVOPending) return;
+    if (document.getElementById('screen-intro').classList.contains('hidden')) return;   /* only on the title */
+    _titleVOPending = false;
+    try { voiceTitle.src = assetURL(TITLE_VO_SRC); voiceTitle.currentTime = 0; voiceTitle.play().catch(() => {}); } catch (e) {}
+  }, true);
+
   /* ── Current-flow SFX (real recordings) — a sharp zap + a sustained energy surge that
      play when the completed pattern powers the circuit ── */
   const sndElectricity  = mkAudio('audio/electricity.ogg'); sndElectricity.volume = 0.9;
   const sndEnergy       = mkAudio('audio/energy.ogg');       sndEnergy.volume      = 0.75;
 
   /* ── Spoken-number clips (all the numbers we have audio/<n>.ogg files for) ── */
-  const NUMBER_VOICE_FILES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 25, 30, 35];
+  /* Only the numbers the game actually speaks: the L1 pattern read aloud (2,4,6,8,10) plus
+     every value the player places across the 4 levels (12,14,16 / 18,21,24 / 25,30,35 / 11,13,15). */
+  const NUMBER_VOICE_FILES = [2, 4, 6, 8, 10, 11, 12, 13, 14, 15, 16, 18, 21, 24, 25, 30, 35];
   const NUMBER_VOICES = {};
   NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = mkAudio('audio/' + n + '.ogg'); });
 
@@ -1046,10 +1049,11 @@
   }
 
   /* typewriter the dialogue out, blipping softly as the character "speaks" */
+  const TYPE_MS = 90;   /* ms per character — slower, easier-to-read typing pace */
   let _typeTimer = null;
-  function _typeBotText(text) {
+  function _typeBotText(text, onTyped) {
     const el = document.getElementById('bot-text');
-    if (!el) return;
+    if (!el) { if (onTyped) onTyped(); return; }
     el.textContent = '';
     if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
     let i = 0;
@@ -1058,8 +1062,8 @@
       el.textContent = text.slice(0, i);
       const ch = text[i - 1];
       if (i % 2 === 0 && ch && ch !== ' ') sfxTalk();
-      if (i >= text.length) { clearInterval(_typeTimer); _typeTimer = null; }
-    }, 55);
+      if (i >= text.length) { clearInterval(_typeTimer); _typeTimer = null; if (onTyped) onTyped(); }
+    }, TYPE_MS);
   }
 
   function _advanceQueue() {
@@ -1071,38 +1075,43 @@
     const item = _voiceQueue.shift();
     _voicePlaying = true;
     _setOptionsLock(true);
-    let advanced = false, wd = null;
+    let advanced = false, wd = null, typed = false, audioDone = false;
     const finish = () => {
       if (advanced) return; advanced = true;
       clearTimeout(wd);
       if (item.onDone) item.onDone();
       _advanceQueue();
     };
+    /* advance only once BOTH the line has fully typed AND the voice clip has ended, so a
+       slower typewriter never gets cut off by a shorter clip */
+    const maybeFinish = () => { if (typed && audioDone) finish(); };
     if (item.action) {
       /* custom step (e.g. read the pattern aloud) — no bot text; calls finish when done */
       item.action(finish);
       return;
     }
-    _typeBotText(item.text);
+    _typeBotText(item.text, () => { typed = true; maybeFinish(); });
     if (item.audio) {
       /* Advance on any of three paths so the (options-locked) narration can never wedge:
          (1) the `ended` event, (2) an `error`/play-reject handler, (3) a watchdog re-armed
-         to the real clip length once metadata loads. */
+         to the real clip length once metadata loads (the watchdog force-advances). */
       item.audio.currentTime = 0;
-      item.audio.onended = finish;
-      item.audio.onerror = () => setTimeout(finish, item.text.length * 55 + 900);
+      item.audio.onended = () => { audioDone = true; maybeFinish(); };
+      item.audio.onerror = () => { audioDone = true; maybeFinish(); };
       const armWd = () => {
         clearTimeout(wd);
         const d = (isFinite(item.audio.duration) && item.audio.duration > 0)
-                  ? item.audio.duration * 1000 : (item.text.length * 55 + 1300);
-        wd = setTimeout(finish, d + 2500);
+                  ? item.audio.duration * 1000 : (item.text.length * TYPE_MS + 1300);
+        wd = setTimeout(finish, d + Math.max(2500, item.text.length * TYPE_MS));
       };
       item.audio.onloadedmetadata = armWd;
       armWd();
-      item.audio.play().catch(() => setTimeout(finish, item.text.length * 55 + 900));
+      item.audio.play().catch(() => { audioDone = true; maybeFinish(); });
     } else {
-      /* narration line with no audio → hold long enough to read */
-      wd = setTimeout(finish, item.text.length * 55 + 1300);
+      /* narration line with no audio → hold long enough to read, advance once typed */
+      const hold = item.text.length * TYPE_MS + 1300;
+      setTimeout(() => { audioDone = true; maybeFinish(); }, hold);
+      wd = setTimeout(finish, hold + 3000);
     }
   }
 
@@ -1798,6 +1807,16 @@
       document.getElementById('screen-' + s).classList.toggle('hidden', s !== name)
     );
     _setMenuAnims(name === 'intro');   /* pause/release the intro-button layers while occluded */
+    if (name === 'intro') armTitleVO();   /* Byte greets on the next tap on the title */
+  }
+
+  /* Top-left robot: swap between the idle static robot (#qrobot) and the dancing Byte
+     (#byte-dance) — strictly one or the other, so they can never overlap/ghost. */
+  function setByteDancing(on) {
+    const q = document.getElementById('qrobot');
+    const bd = document.getElementById('byte-dance');
+    if (q)  { q.style.opacity = ''; q.classList.toggle('robot-hidden', on); }  /* class (not inline) controls it */
+    if (bd) bd.classList.toggle('show', on);
   }
 
   /* Blast-door transition: doors slide shut, swap the screen behind them, slide open */
@@ -2028,9 +2047,8 @@
     setTimeout(() => sfxPop(660), 2950);  /* blue pipe   */
     setTimeout(() => sfxPop(780), 2990);  /* red power   */
 
-    /* reset the top-left character (Byte dances on a completed level) */
-    document.getElementById('byte-dance').classList.remove('show');
-    document.getElementById('qrobot').style.opacity = '';
+    /* reset the top-left character to the idle static robot */
+    setByteDancing(false);
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
     tutorialGuide = false;          /* correct-option glow only appears at the tutorial prompt */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
@@ -2145,8 +2163,7 @@
     panel.classList.remove('row-complete', 'well-done-active', 'opening');
     document.getElementById('panel-frame').src = assetURL('assets/figma/panel.svg');
     document.getElementById('well-done-msg').classList.add('hidden');
-    document.getElementById('byte-dance').classList.remove('show');
-    document.getElementById('qrobot').style.opacity = '';
+    setByteDancing(false);
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
     tutorialGuide = false;          /* the correct-option glow is tutorial-only */
     resetHint();   /* clear the previous level; the bulb stays HIDDEN now and only pops in
@@ -2215,9 +2232,8 @@
         _ob.classList.remove('deploy'); void _ob.offsetWidth; _ob.classList.add('retract');
         document.querySelectorAll('.opt-pipe').forEach(p => { p.classList.remove('extend'); p.classList.add('retract'); });
 
-        /* Byte dances in the top-left to celebrate */
-        document.getElementById('qrobot').style.opacity = '0';
-        document.getElementById('byte-dance').classList.add('show');
+        /* Byte dances in the top-left to celebrate (static robot fully hidden meanwhile) */
+        setByteDancing(true);
 
         const isLast = currentRow + 1 >= ROWS_CONFIG.length;
         const advance = () => {
@@ -2391,7 +2407,7 @@
        to land as the completion screen is revealed (after the blast doors open) */
     setTimeout(() => { sfxWin(); fireConfetti(); }, 1000);
     const v = document.getElementById('end-video');
-    if (!v) { goToTitleWithPlayAgain(); return; }
+    if (!v) { goToTitle(); return; }
 
     /* The "Play Again" reveal must NEVER get stuck waiting on the video. Three independent
        paths lead out: (1) the `ended` event, (2) an `error` handler that first retries the
@@ -2402,7 +2418,7 @@
       if (done) return; done = true;
       clearTimeout(wd);
       v.onended = v.onerror = v.onloadedmetadata = null;
-      goToTitleWithPlayAgain();
+      goToTitle();
     };
     const armWatchdog = () => {
       clearTimeout(wd);
@@ -2445,14 +2461,14 @@
     initGrid();
   }
 
-  /* after the completion video: blast-door transition back to the title, reset for a fresh
-     run, and reveal the Play Again button in place of PLAY */
-  function goToTitleWithPlayAgain() {
+  /* after the completion video: blast-door transition back to the title screen and reset for
+     a fresh run — the normal PLAY button restarts the game (no separate "Play Again" button) */
+  function goToTitle() {
     playTransition(() => {
       resetGameState();
       showScreen('intro');
-      document.querySelector('.btn-play').classList.add('hidden');
-      document.getElementById('title-play-again').classList.remove('hidden');
+      const play = document.querySelector('.btn-play');
+      play.classList.remove('hidden', 'boot-hidden');   /* PLAY starts a fresh run */
     });
   }
 
@@ -2469,22 +2485,23 @@
   const ASSET_SIZES = {
     "assets/arrow arc.webp": 770, "assets/arrow arc 2.webp": 858, "assets/arrow arc 3.webp": 928,
     "assets/hint-yellow.svg": 1238, "assets/figma/textbox.svg": 2091, "assets/Green button.webp": 5726,
-    "audio/30.ogg": 6592, "audio/20.ogg": 6622, "assets/Red button.webp": 6820, "audio/10.ogg": 7164,
-    "audio/14.ogg": 7322, "audio/8.ogg": 7751, "audio/6.ogg": 7869, "audio/4.ogg": 7907,
-    "audio/12.ogg": 7962, "audio/15.ogg": 8187, "audio/7.ogg": 8448, "audio/18.ogg": 8678,
-    "audio/electricity.ogg": 8701, "audio/5.ogg": 8863, "audio/2.ogg": 8945, "audio/16.ogg": 9018,
-    "audio/3.ogg": 9085, "audio/24.ogg": 9213, "audio/1.ogg": 9564, "assets/play button.svg": 9585,
-    "audio/21.ogg": 9842, "audio/11.ogg": 10073, "audio/9.ogg": 10109, "audio/13.ogg": 10418,
-    "audio/25.ogg": 10944, "audio/35.ogg": 10948, "assets/figma/options-box.svg": 11520,
-    "assets/figma/panel.svg": 11530, "assets/figma/panel-green.svg": 11531, "assets/figma/connector.webp": 14054,
-    "assets/background.webp": 16230, "audio/Follow the pattern!.ogg": 17102, "audio/Tap the correct switch.ogg": 20734,
-    "assets/play again.svg": 22126, "audio/Let us start fixing the switches.ogg": 26304,
-    "audio/These switches are in a pattern.ogg": 29514, "audio/Let us read the pattern together.ogg": 31143,
-    "audio/We keep adding the same number!.ogg": 31596, "audio/Good job! You fixed these switches.ogg": 33007,
-    "audio/We are adding 2 at each step.ogg": 33516, "audio/Well done! All the switches are fixed.ogg": 34092,
-    "audio/Wuhoo! The switches are fixed.ogg": 34340, "audio/Tap the correct switch to continue the pattern.ogg": 36606,
-    "assets/figma/robot.webp": 43190, "audio/energy.ogg": 99680, "assets/figma/tile.webp": 126848,
-    "assets/title screen.webp": 142274, "assets/robot dance.webp": 254398, "assets/end-video.webm": 789182,
+    "audio/12.ogg": 6583, "assets/Red button.webp": 6820, "audio/8.ogg": 7555, "audio/11.ogg": 7996,
+    "audio/10.ogg": 8080, "audio/6.ogg": 8556, "audio/electricity.ogg": 8701, "audio/2.ogg": 8793,
+    "audio/13.ogg": 8990, "audio/15.ogg": 9044, "audio/30.ogg": 9173, "audio/4.ogg": 9267,
+    "assets/play button.svg": 9585, "audio/18.ogg": 9854, "audio/14.ogg": 10155, "audio/21.ogg": 10282,
+    "audio/16.ogg": 10430, "audio/25.ogg": 10839, "audio/24.ogg": 10912, "audio/35.ogg": 10918,
+    "assets/figma/options-box.svg": 11520, "assets/figma/panel.svg": 11530,
+    "assets/figma/panel-green.svg": 11531, "assets/figma/connector.webp": 14054,
+    "assets/background.webp": 16230, "audio/Follow the pattern!.ogg": 17102,
+    "audio/Tap the correct switch.ogg": 20734,
+    "audio/Let us start fixing the switches.ogg": 26304, "audio/These switches are in a pattern.ogg": 29514,
+    "audio/Let us read the pattern together.ogg": 31143, "audio/We keep adding the same number!.ogg": 31596,
+    "audio/Good job! You fixed these switches.ogg": 33007, "audio/We are adding 2 at each step.ogg": 33516,
+    "audio/Well done! All the switches are fixed.ogg": 34092,
+    "audio/Wuhoo! The switches are fixed.ogg": 34340,
+    "audio/Tap the correct switch to continue the pattern.ogg": 36606, "assets/figma/robot.webp": 43190,
+    "audio/energy.ogg": 99680, "assets/figma/tile.webp": 126848, "assets/title screen.webp": 142274,
+    "assets/robot dance.webp": 254398, "assets/end-video.webm": 789182,
   };
   const MANIFEST = Object.keys(ASSET_SIZES);
 
@@ -2588,14 +2605,14 @@
   const _menuTweens = [];
   function _setMenuAnims(on) {
     for (const t of _menuTweens) { try { on ? t.play() : t.pause(); } catch (e) {} }
-    document.querySelectorAll('.btn-play, #title-play-again').forEach(b => {
+    document.querySelectorAll('.btn-play').forEach(b => {
       b.style.willChange = on ? 'transform, filter' : 'auto';
       const img = b.querySelector('img'); if (img) img.style.willChange = on ? 'transform, filter' : 'auto';
     });
   }
   function animatePlayButton() {
     if (!window.gsap) return;
-    document.querySelectorAll('.btn-play, #title-play-again').forEach(_setupBtnPulse);
+    document.querySelectorAll('.btn-play').forEach(_setupBtnPulse);
   }
   function _setupBtnPulse(btn) {
     if (!btn || btn._gsapInit) return;
@@ -2645,10 +2662,8 @@
       });
     };
     const play  = document.querySelector('.btn-play');
-    const again = document.getElementById('title-play-again');
     const hint  = document.getElementById('hint-btn');
     addHover(play);    /* PLAY: the press sound is played in handleStart() */
-    addHover(again);   /* Play Again: also starts the game via handleStart() (press sound there) */
     if (hint && !hint._wired) {
       hint._wired = true;
       addHover(hint);
