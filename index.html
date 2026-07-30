@@ -644,7 +644,7 @@
     /* ── Title-screen PLAY button (image asset, bottom-right corner) ── */
     #screen-intro .btn-play {
       position: absolute;
-      right: 66px; bottom: 74px;   /* same spot/size as Play Again, which replaces it */
+      right: 66px; bottom: 74px;
       z-index: 2;
     }
     .btn-play {
@@ -973,24 +973,6 @@
   ];
   const VOICE = {};
   VOICE_LINES.forEach(t => { VOICE[t] = mkAudio('audio/' + t.replace(/\.$/, '') + '.ogg'); });
-
-  /* ── Title voice-over ─────────────────────────────────────────────────────────────────
-     Byte greets the player on the title screen. Browsers block audio before a user gesture,
-     so it's armed to fire on the FIRST pointer-down while the title is showing (that same tap
-     unlocks audio). Re-armed on every title entry. PLACEHOLDER clip for now — reuses the
-     already-preloaded "Follow the pattern!" line; swap TITLE_VO_SRC for a real title clip
-     (e.g. a "Lights Out!" recording) when available. */
-  const TITLE_VO_SRC = 'audio/Follow the pattern!.ogg';
-  const voiceTitle = new Audio();
-  voiceTitle.preload = 'none';
-  let _titleVOPending = false;
-  function armTitleVO() { _titleVOPending = true; }
-  window.addEventListener('pointerdown', () => {
-    if (!_titleVOPending) return;
-    if (document.getElementById('screen-intro').classList.contains('hidden')) return;   /* only on the title */
-    _titleVOPending = false;
-    try { voiceTitle.src = assetURL(TITLE_VO_SRC); voiceTitle.currentTime = 0; voiceTitle.play().catch(() => {}); } catch (e) {}
-  }, true);
 
   /* ── Current-flow SFX (real recordings) — a sharp zap + a sustained energy surge that
      play when the completed pattern powers the circuit ── */
@@ -1807,7 +1789,6 @@
       document.getElementById('screen-' + s).classList.toggle('hidden', s !== name)
     );
     _setMenuAnims(name === 'intro');   /* pause/release the intro-button layers while occluded */
-    if (name === 'intro') armTitleVO();   /* Byte greets on the next tap on the title */
   }
 
   /* Top-left robot: swap between the idle static robot (#qrobot) and the dancing Byte
@@ -2025,8 +2006,8 @@
     /* unlock the Web Audio context on this user gesture so timed SFX can play later */
     try { const c = ac(); if (c.state === 'suspended') c.resume(); } catch (e) {}
     sfxClick();   /* audible PLAY press (context is now unlocked by this gesture) */
-    /* little sparks burst from whichever start button was tapped (PLAY or Play Again) */
-    spawnSparks(document.querySelector('#screen-intro button:not(.hidden)') || document.querySelector('.btn-play'), 22);
+    /* little sparks burst from the PLAY button when tapped */
+    spawnSparks(document.querySelector('.btn-play'), 22);
     /* short beat so the sparks are visible, THEN the blast doors close + entrance begins */
     setTimeout(() => { playTransition(() => { handleLevelStart(); }); }, 360);
   }
@@ -2401,75 +2382,26 @@
     if (canvas && canvas.getContext) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  /* final screen: play the end video, reveal Play Again when it finishes */
+  /* final screen: play the end video — the game ENDS here (no redirect back to the title) */
   function playEndVideo() {
     /* celebrate finishing the whole game: happy "ta-da!" fanfare + a confetti burst, timed
        to land as the completion screen is revealed (after the blast doors open) */
     setTimeout(() => { sfxWin(); fireConfetti(); }, 1000);
     const v = document.getElementById('end-video');
-    if (!v) { goToTitle(); return; }
-
-    /* The "Play Again" reveal must NEVER get stuck waiting on the video. Three independent
-       paths lead out: (1) the `ended` event, (2) an `error` handler that first retries the
-       original file URL once (in case the blob failed) then bails, and (3) a watchdog timer
-       (video duration + grace), re-armed once the real duration is known. */
-    let done = false, triedFile = false, wd = null;
-    const finish = () => {
-      if (done) return; done = true;
-      clearTimeout(wd);
-      v.onended = v.onerror = v.onloadedmetadata = null;
-      goToTitle();
+    if (!v) return;
+    /* one-time fallback: if the preloaded blob fails, retry the original file so the video
+       still plays. The clip just stops on its last frame when it ends — nothing to reveal. */
+    let triedFile = false;
+    v.onerror = () => {
+      if (triedFile) return;
+      triedFile = true;
+      v.src = 'assets/end-video.webm';
+      try { v.load(); v.currentTime = 0; } catch (e) {}
+      const rp = v.play(); if (rp && rp.catch) rp.catch(() => {});
     };
-    const armWatchdog = () => {
-      clearTimeout(wd);
-      const durMs = (isFinite(v.duration) && v.duration > 0) ? v.duration * 1000 : 10500;
-      wd = setTimeout(finish, durMs + 4000);   /* duration + a few seconds grace */
-    };
-
     try { v.currentTime = 0; } catch (e) {}
-    v.onended = finish;                                    /* (1) the event */
-    v.onloadedmetadata = () => { if (!done) armWatchdog(); };
-    v.onerror = () => {                                     /* (2) error → retry original file once, else out */
-      if (!triedFile) {
-        triedFile = true;
-        v.src = 'assets/end-video.webm';
-        try { v.load(); v.currentTime = 0; } catch (e) {}
-        const rp = v.play(); if (rp && rp.catch) rp.catch(finish);
-      } else { finish(); }
-    };
-    armWatchdog();                                         /* (3) watchdog */
     const p = v.play();
-    if (p && p.catch) p.catch(() => finish());             /* autoplay blocked → still proceed */
-  }
-
-  /* reset all game state for a fresh run — does NOT change screens or touch the blast-door
-     transition (it's called from inside one) */
-  function resetGameState() {
-    if (timer) clearTimeout(timer);
-    if (levelTimer) clearTimeout(levelTimer);
-    clearVoiceQueue();
-    stopConfetti();
-    const _ev = document.getElementById('end-video');
-    if (_ev) { try { _ev.pause(); _ev.currentTime = 0; } catch (e) {} }
-    phase = 'intro'; currentRow = 0;
-    wrongCount = 0; wrongAnswer = null;
-    showHint = false; score = 0; streak = 0;
-    tutorialArrowsLocked = false;
-    tutorialGuide = false;
-    handleStart._busy = false;   /* allow Play Again */
-    resetHint();
-    initGrid();
-  }
-
-  /* after the completion video: blast-door transition back to the title screen and reset for
-     a fresh run — the normal PLAY button restarts the game (no separate "Play Again" button) */
-  function goToTitle() {
-    playTransition(() => {
-      resetGameState();
-      showScreen('intro');
-      const play = document.querySelector('.btn-play');
-      play.classList.remove('hidden', 'boot-hidden');   /* PLAY starts a fresh run */
-    });
+    if (p && p.catch) p.catch(() => {});   /* autoplay blocked — just stay on the screen */
   }
 
 
