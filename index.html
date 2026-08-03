@@ -990,8 +990,35 @@
   function playNumberVoice(n) {
     const snd = NUMBER_VOICES[n];
     if (!snd) return;
+    try { snd.pause(); } catch (e) {}
     snd.currentTime = 0;
     snd.play().catch(() => {});
+  }
+
+  /* Same clip, but run through the dialogue queue so the line that follows (e.g. the win
+     line on the row-completing tap) waits for it instead of talking over it. Advances on
+     `ended`, on error/play-reject, or on a watchdog — never wedges the queue. */
+  function queueNumberVoice(n) {
+    const snd = NUMBER_VOICES[n];
+    if (!snd) return;
+    queueAction(done => {
+      let stepped = false, wd = null;
+      const step = () => {
+        if (stepped) return; stepped = true;
+        clearTimeout(wd);
+        snd.onended = snd.onerror = snd.onloadedmetadata = null;
+        setTimeout(done, 180);
+      };
+      const armWd = () => {
+        clearTimeout(wd);
+        const d = (isFinite(snd.duration) && snd.duration > 0) ? snd.duration * 1000 : 1200;
+        wd = setTimeout(step, d + 1200);
+      };
+      snd.onended = step; snd.onerror = step; snd.onloadedmetadata = armWd;
+      armWd();
+      try { snd.pause(); snd.currentTime = 0; } catch (e) {}
+      snd.play().catch(step);
+    });
   }
 
   /* Tutorial "read the pattern together": highlight each prefilled switch in turn and
@@ -1114,7 +1141,8 @@
     _voicePlaying = false;
     _setOptionsLock(false);
     if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
-    Object.values(VOICE).forEach(a => { a.pause(); a.currentTime = 0; });
+    Object.values(VOICE).forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+    Object.values(NUMBER_VOICES).forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
   }
 
   /* ── SFX (Web Audio API — no external files) ─────── */
@@ -2173,6 +2201,9 @@
       setTimeout(() => {
         optArea.classList.remove('hidden-initially'); void optArea.offsetWidth; optArea.classList.add('reveal');
         sfxPop(700);
+        /* speak the prompt now that the options are tappable (the text is already shown) */
+        const vo = VOICE['Tap the correct switch.'];
+        if (vo) { try { vo.currentTime = 0; vo.play().catch(() => {}); } catch (e) {} }
         setTimeout(() => optArea.classList.remove('reveal'), 1400);
       }, 560 + 1400);
     }, 1150);   /* wait for the blast doors to open before deploying the options */
@@ -2187,7 +2218,6 @@
 
     if (val === correct) {
       sfxSwitchOn();          /* the switch flips ON for a correct pick */
-      playNumberVoice(val);   /* speak the number if a voice clip exists for it */
       const pts   = showHint ? 5 : wrongCount === 0 ? 15 : 10;
       wrongCount  = 0; wrongAnswer = null; showHint = false;
       resetHint();   /* clear bulb glow + hop arrows now that this slot is solved */
@@ -2201,6 +2231,9 @@
 
       if (grid[currentRow].length >= getUserPositions(cfg).length) {
         _setOptionsLock(true);
+        /* row-completing tap: speak the number THROUGH the queue so the win line below
+           starts only after it ends (otherwise both voices played at once) */
+        queueNumberVoice(val);
         sfxCorrect();
         phase = 'question';
         justPlaced = true; renderQuestion(); justPlaced = false;
@@ -2235,6 +2268,7 @@
         ];
         queueBotText(winLines[Math.floor(Math.random() * winLines.length)], null, advance);
       } else {
+        playNumberVoice(val);   /* mid-row tap: nothing else is speaking, play it directly */
         sfxCorrect();
         phase = 'question';
         justPlaced = true; renderQuestion(); justPlaced = false;
