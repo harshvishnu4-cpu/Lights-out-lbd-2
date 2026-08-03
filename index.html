@@ -11,6 +11,15 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* The two images the stylesheet draws go through custom properties so the preloader can
+       swap in their local blob: URL (see _CSS_ASSET_VARS). The literal paths here are the
+       fallback if a fetch fails — without this the stylesheet re-requests them itself and
+       "loaded == local" would not hold for the tile art. */
+    :root {
+      --bg-img:   url('assets/background.webp');
+      --tile-img: url('assets/figma/tile.webp');
+    }
+
     html, body {
       width: 100%; height: 100%; overflow: hidden;
     }
@@ -29,7 +38,7 @@
       position: absolute;
       top: 0; left: 0;
       transform-origin: top left;
-      background: #06111e url('assets/background.webp') center / cover no-repeat;
+      background: #06111e var(--bg-img) center / cover no-repeat;
       overflow: hidden;
     }
 
@@ -37,7 +46,6 @@
     @keyframes fadeIn   { from { opacity:0; transform:translateY(6px); }  to { opacity:1; transform:translateY(0); } }
     @keyframes popIn    { from { opacity:0; transform:scale(0.45); }       to { opacity:1; transform:scale(1); } }
     @keyframes shake    { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
-    @keyframes hintGlow  { 0%,100%{filter:brightness(1)   drop-shadow(0 0 6px rgba(0,229,255,.5));} 50%{filter:brightness(1.15) drop-shadow(0 0 18px rgba(0,229,255,1));} }
     @keyframes pulse    { 0%,100%{filter:brightness(1);}  50%{filter:brightness(1.28) drop-shadow(0 0 18px #4afa7c);} }
 
     /* ════════════════════════════════════════════
@@ -216,11 +224,6 @@
       background: #2bff7a;
       box-shadow: 0 0 13px rgba(43,255,122,.95), inset 0 0 4px rgba(255,255,255,.4);
     }
-    #main-panel.vent-wrong .vent-bar {
-      background: #ffab2e;   /* gentle amber for a wrong answer (no red) */
-      box-shadow: 0 0 13px rgba(255,171,46,.95), inset 0 0 4px rgba(255,255,255,.4);
-    }
-    #main-panel.row-complete .vent-bar { display: none; }
 
     /* pattern complete: a bright green pulse flows through the vent bars (left → right, toward the pipe) */
     @keyframes ventFlow {
@@ -258,7 +261,7 @@
     .tile {
       position: relative;
       width: 100%; height: 100%;
-      background-image: url('assets/figma/tile.webp');
+      background-image: var(--tile-img);
       background-repeat: no-repeat;
       background-size: 248.81% 138.26%;
       background-position: 49.6% 57.92%;
@@ -309,9 +312,7 @@
       16%  { box-shadow: 0 0 34px 12px rgba(255,171,46,.98), 0 0 68px 26px rgba(255,140,20,.55); outline-color: #ffbf5a; }
       100% { box-shadow: 0 0 18px 4px rgba(255,171,46,.7);    outline-color: #ffab2e; }
     }
-    .sw.wrong { animation: shake 0.45s ease; }
     .sw.wrong-option { animation: shake 0.45s ease; }
-    .sw.wrong .tile,
     .sw.wrong-option .tile {
       outline: 3px solid #ffab2e;
       border-radius: 8px;
@@ -338,118 +339,6 @@
       background: radial-gradient(circle, rgba(255,210,90,.95) 0%, rgba(255,120,30,.55) 38%, rgba(255,60,30,0) 70%);
     }
 
-    /* All switches shake together on wrong answer */
-    #switch-row.shaking .sw { animation: shake 0.45s ease; }
-
-    /* Completed-row switch styling */
-    .sw.complete-fill .tile {
-      outline: 2px solid rgba(120, 235, 255, 0.8);
-      box-shadow: 0 0 12px rgba(0, 220, 255, .45);
-      border-radius: 8px;
-      animation: fadeIn 0.3s ease both;
-    }
-
-    /* Panel green-glow state for row-complete */
-    @keyframes greenBorderPulse {
-      0%,100% { box-shadow: 0 0 0 4px #4afa7c, 0 0 35px rgba(74,250,124,.55), 0 0 80px rgba(74,250,124,.22); }
-      50%     { box-shadow: 0 0 0 4px #4afa7c, 0 0 62px rgba(74,250,124,.88), 0 0 130px rgba(74,250,124,.42); }
-    }
-
-    #main-panel.row-complete {
-      left: 72px; top: 130px;
-      width: 1776px; height: 820px;
-      border-radius: 24px;
-      background: #041840;
-      z-index: 10;
-      animation: greenBorderPulse 1.2s ease-in-out infinite;
-      transition: top 0.35s ease, height 0.35s ease, width 0.35s ease, left 0.35s ease, background 0.3s ease;
-    }
-    #main-panel.row-complete #panel-frame { opacity: 0; }
-    #main-panel.row-complete #switch-row {
-      top: 50%;
-      transform: translateY(-50%);
-      transition: filter 0.3s ease, opacity 0.3s ease;
-    }
-
-    /* Hide surrounding chrome during celebration */
-    #screen-question.celebrating #qrobot,
-    #screen-question.celebrating #power-btn,
-    #screen-question.celebrating #hint-btn,
-    #screen-question.celebrating #bot-bar,
-    #screen-question.celebrating .connector,
-    #screen-question.celebrating #options-box {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-
-    /* Hide switches when Well done appears */
-    #main-panel.well-done-active #switch-row {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease;
-    }
-
-    /* Well done overlay */
-    @keyframes wellDonePop {
-      from { opacity: 0; transform: translate(-50%, -50%) scale(0.55); }
-      to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    }
-    @keyframes robotDance {
-      0%,100% { transform: translateY(0)    rotate(0deg);   }
-      15%     { transform: translateY(-18px) rotate(-8deg);  }
-      30%     { transform: translateY(0)    rotate(0deg);   }
-      45%     { transform: translateY(-14px) rotate(7deg);   }
-      60%     { transform: translateY(0)    rotate(0deg);   }
-      75%     { transform: translateY(-10px) rotate(-5deg);  }
-      90%     { transform: translateY(0)    rotate(0deg);   }
-    }
-
-    #well-done-msg {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      pointer-events: none;
-      z-index: 20;
-      white-space: nowrap;
-      animation: wellDonePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    }
-    #well-done-msg.hidden { display: none !important; }
-
-    #robot-dance {
-      width: 180px;
-      height: auto;
-      animation: robotDance 1s ease-in-out infinite;
-      filter: drop-shadow(0 0 18px rgba(0,220,255,.45));
-    }
-
-    #well-done-text {
-      font-family: 'Exo 2', sans-serif;
-      font-size: 110px;
-      font-weight: 900;
-      color: #00e8ff;
-      letter-spacing: 2px;
-      text-shadow: 0 0 40px rgba(0,232,255,.7), 0 0 80px rgba(0,200,255,.35), 0 4px 0 rgba(0,0,0,.45);
-    }
-
-    /* Wrong answer message */
-    #wrong-msg {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -58%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      pointer-events: none;
-      z-index: 10;
-    }
-    #wrong-msg.hidden { display: none !important; }
-
     /* Options box (bottom) */
     #options-box {
       position: absolute;
@@ -473,7 +362,6 @@
       gap: 38px;
       z-index: 2;
     }
-    #options-area.invisible { visibility: hidden; pointer-events: none; }
 
     @keyframes optTilePop {
       0%   { opacity: 0; transform: translateY(24px) scale(0.55); }
@@ -532,8 +420,9 @@
       78%  { transform: translateY(-5px) scaleY(0.99); }
       100% { opacity: 1; transform: translateY(0) scaleY(1); filter: none; }
     }
-    /* on completion the option placeholder retracts back up into the panel/vent */
-    #options-box.retract { animation: optionsBoxRetract 0.55s cubic-bezier(0.5, 0, 0.75, 0.4) forwards; }
+    /* on completion the option placeholder retracts back up into the panel/vent
+       (pointer-events off — it animates to opacity 0 but stays hit-testable otherwise) */
+    #options-box.retract { animation: optionsBoxRetract 0.55s cubic-bezier(0.5, 0, 0.75, 0.4) forwards; pointer-events: none; }
     @keyframes optionsBoxRetract {
       0%   { opacity: 1; transform: translateY(0) scaleY(1); }
       100% { opacity: 0; transform: translateY(-80px) scaleY(0.32); }
@@ -553,13 +442,6 @@
       transition: transform 0.13s;
     }
     .sw.option:hover { transform: scale(1.08); }
-
-    .sw.hint { cursor: pointer; position: relative; animation: hintGlow 1s ease-in-out infinite; }
-    .sw.hint .tile {
-      outline: 3px solid #00e5ff;
-      border-radius: 8px;
-    }
-    .sw.hint:hover { transform: scale(1.08); }
 
     /* ── Hint button (yellow bulb, right end of the bot bar) — art from assets/hint-yellow.svg ── */
     #hint-btn {
@@ -877,8 +759,6 @@
       </div>
     </div>
 
-    <!-- Decorative glow line (options box) -->
-
     <!-- Main panel -->
     <div id="main-panel">
       <img id="panel-frame" data-asset="assets/figma/panel.svg" alt="" />
@@ -891,11 +771,6 @@
       <div id="switch-row"></div>
       <!-- Hint overlay: "+N" hop arrows above the switches (populated in JS on reveal) -->
       <div id="hint-arrows" class="hidden"></div>
-      <div id="well-done-msg" class="hidden">
-        <img id="robot-dance" data-asset="assets/robot dance.webp" alt="robot" />
-        <span id="well-done-text">Well done!</span>
-      </div>
-      <div id="wrong-msg" class="hidden"></div>
     </div>
 
     <!-- Options box -->
@@ -986,14 +861,46 @@
   const NUMBER_VOICES = {};
   NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = mkAudio('audio/' + n + '.ogg'); });
 
-  /* speak a number when the player places it (silently skips numbers with no clip) */
-  function playNumberVoice(n) {
-    const snd = NUMBER_VOICES[n];
-    if (!snd) return;
-    try { snd.pause(); } catch (e) {}
-    snd.currentTime = 0;
-    snd.play().catch(() => {});
+  /* ── Speech channel ───────────────────────────────────────────────────────────────────
+     Only ONE spoken clip may ever sound at a time. Two kinds of speech exist:
+
+       • queue-driven — dialogue lines and `queueNumberVoice`, which the dialogue queue is
+         waiting on. These OWN the channel until they end; cutting one would strand
+         `_advanceQueue` on its watchdog, so a barge-in must never touch them.
+       • free — a number spoken on a tap, or the level prompt. The newest one wins: it cuts
+         whatever free clip is still sounding.
+
+     Without this, tapping fast made 2–3 number clips (and the level prompt) play at once. */
+  const ALL_SPEECH = Object.values(VOICE).concat(Object.values(NUMBER_VOICES));
+  let _queueClip = null;   /* clip the dialogue queue is waiting on — never barge in on it */
+  let _freeClip  = null;   /* clip speaking outside the queue — the newest one wins */
+
+  /* cut whatever is speaking outside the dialogue queue */
+  function _stopFreeSpeech() {
+    const c = _freeClip;
+    _freeClip = null;
+    if (c && c !== _queueClip) { try { c.pause(); c.currentTime = 0; } catch (e) {} }
   }
+
+  /* hard stop — every clip, queue-owned or not (level change / reset) */
+  function _stopAllSpeech() {
+    _queueClip = null; _freeClip = null;
+    ALL_SPEECH.forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+  }
+
+  /* speak a clip outside the dialogue queue, cutting any other free speech first */
+  function speakNow(snd) {
+    if (!snd) return;
+    _stopFreeSpeech();
+    _freeClip = snd;
+    const clear = () => { if (_freeClip === snd) _freeClip = null; };
+    snd.onended = clear; snd.onerror = clear;
+    try { snd.pause(); snd.currentTime = 0; } catch (e) {}
+    snd.play().catch(clear);
+  }
+
+  /* speak a number when the player places it (silently skips numbers with no clip) */
+  function playNumberVoice(n) { speakNow(NUMBER_VOICES[n]); }
 
   /* Same clip, but run through the dialogue queue so the line that follows (e.g. the win
      line on the row-completing tap) waits for it instead of talking over it. Advances on
@@ -1006,6 +913,7 @@
       const step = () => {
         if (stepped) return; stepped = true;
         clearTimeout(wd);
+        if (_queueClip === snd) _queueClip = null;
         snd.onended = snd.onerror = snd.onloadedmetadata = null;
         setTimeout(done, 180);
       };
@@ -1016,6 +924,8 @@
       };
       snd.onended = step; snd.onerror = step; snd.onloadedmetadata = armWd;
       armWd();
+      _stopFreeSpeech();
+      _queueClip = snd;
       try { snd.pause(); snd.currentTime = 0; } catch (e) {}
       snd.play().catch(step);
     });
@@ -1037,9 +947,16 @@
       if (snd) {
         /* advance on `ended`, on play-reject, OR a watchdog — never hang the tutorial */
         let stepped = false, wd = null;
-        const step = (gap) => { if (stepped) return; stepped = true; clearTimeout(wd); snd.onended = null; setTimeout(next, gap); };
+        const step = (gap) => {
+          if (stepped) return; stepped = true;
+          clearTimeout(wd);
+          if (_queueClip === snd) _queueClip = null;
+          snd.onended = null;
+          setTimeout(next, gap);
+        };
         wd = setTimeout(() => step(180), ((isFinite(snd.duration) && snd.duration > 0) ? snd.duration * 1000 : 1200) + 1500);
         snd.onended = () => step(180);
+        _queueClip = snd;          /* queue-owned — a barge-in must not cut the read-aloud */
         snd.currentTime = 0;
         snd.play().catch(() => step(650));
       } else {
@@ -1088,6 +1005,7 @@
     const finish = () => {
       if (advanced) return; advanced = true;
       clearTimeout(wd);
+      if (_queueClip === item.audio) _queueClip = null;
       if (item.onDone) item.onDone();
       _advanceQueue();
     };
@@ -1115,6 +1033,8 @@
       };
       item.audio.onloadedmetadata = armWd;
       armWd();
+      _stopFreeSpeech();          /* a stray number clip must not run under the narration */
+      _queueClip = item.audio;    /* queue-owned until `finish` */
       item.audio.play().catch(() => { audioDone = true; maybeFinish(); });
     } else {
       /* narration line with no audio → hold long enough to read, advance once typed */
@@ -1141,8 +1061,7 @@
     _voicePlaying = false;
     _setOptionsLock(false);
     if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
-    Object.values(VOICE).forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
-    Object.values(NUMBER_VOICES).forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+    _stopAllSpeech();
   }
 
   /* ── SFX (Web Audio API — no external files) ─────── */
@@ -1631,10 +1550,7 @@
   let showHint    = false;
   let justPlaced  = false;
   let firstRender = false;
-  let score       = 0;
-  let streak      = 0;
   let timer       = null;
-  let levelTimer  = null;
 
   function initGrid() {
     /* the player fills the non-prefilled slots in order, so each row starts empty */
@@ -1654,7 +1570,6 @@
   const HINT_ARROW_SRC = { 2: 'assets/arrow arc.webp', 3: 'assets/arrow arc 3.webp', 5: 'assets/arrow arc 2.webp' };
   let hintArmed = false;
   let tutorialArrowsLocked = false;   /* keep the +2 arrows on screen through the Level-1 tutorial */
-  let tutorialGuide = false;          /* Level-1 tutorial: glow the correct option to guide the tap */
 
   /* panel-relative x-centre of switch i, matching the centred flex row in CSS */
   function switchCenterX(i, count) {
@@ -1781,15 +1696,12 @@
     const optArea = document.getElementById('options-area');
     const canTap = optArea && optArea.style.pointerEvents !== 'none' &&
                    !optArea.classList.contains('hidden-initially') &&
-                   !optArea.classList.contains('invisible') &&
-                   (phase === 'question' || phase === 'hint') &&
+                   phase === 'question' &&
                    currentRow !== 0;   /* no nudge during the Level 1 tutorial — the +2 arc guides */
     /* don't fight the armed hint bulb — only one thing pulses at a time */
     const bulbArmed = document.getElementById('hint-btn').classList.contains('armed');
     if (canTap && !bulbArmed) {
-      const cfg = ROWS_CONFIG[currentRow];
-      const up  = getUserPositions(cfg);
-      const rowFull = grid[currentRow].length >= (up ? up.length : TOTAL);
+      const rowFull = grid[currentRow].length >= getUserPositions(ROWS_CONFIG[currentRow]).length;
       if (!rowFull) {
         optArea.classList.remove('idle-nudge'); void optArea.offsetWidth;   /* restart the animation */
         optArea.classList.add('idle-nudge');
@@ -1910,47 +1822,16 @@
 
   /* ── Render question screen ────────────────────── */
   function renderQuestion() {
-    const cfg     = ROWS_CONFIG[currentRow];
-    const row     = grid[currentRow];
-    const correct = getCorrect(cfg, row.length);
-
-    const isRowComplete = phase === 'row-complete';
-
-    /* ── Panel & chrome state ── */
-    const panel  = document.getElementById('main-panel');
-    const botBar = document.getElementById('bot-bar');
-    if (isRowComplete) { panel.classList.remove('opening'); document.getElementById('screen-question').classList.remove('intro'); }
-    panel.classList.toggle('row-complete', isRowComplete);
-    if (!isRowComplete) panel.classList.remove('well-done-active');
-    document.getElementById('screen-question').classList.toggle('celebrating', isRowComplete);
+    const cfg = ROWS_CONFIG[currentRow];
+    const row = grid[currentRow];
 
     /* Vent bars go green on a correct placement. Wrong answers do NOT touch the panel —
        their feedback shows only on the tapped option (shake + amber glow + sparks). */
-    panel.classList.toggle('vent-wrong', false);
-    panel.classList.toggle('vent-correct', justPlaced);
-    botBar.style.visibility = isRowComplete ? 'hidden' : 'visible';
-
-    /* Well done overlay — reveal handled by the timer in handleAnswer */
-    const wellDoneEl = document.getElementById('well-done-msg');
-    if (!isRowComplete) {
-      wellDoneEl.classList.add('hidden');
-    }
-
-    /* Wrong answer overlay */
-    const wrongEl = document.getElementById('wrong-msg');
-    if (phase === 'wrong') {
-      wrongEl.classList.remove('hidden');
-      wrongEl.style.animation = 'none';
-      wrongEl.offsetHeight;
-      wrongEl.style.animation = '';
-    } else {
-      wrongEl.classList.add('hidden');
-    }
+    document.getElementById('main-panel').classList.toggle('vent-correct', justPlaced);
 
     /* ── Switch row container ── */
     const swRow = document.getElementById('switch-row');
     swRow.innerHTML = '';
-    swRow.classList.remove('shaking');   /* wrong answers no longer shake the switch panel */
 
     const userPositions = getUserPositions(cfg);
     const rowFull       = row.length >= userPositions.length;
@@ -1961,12 +1842,11 @@
     powerEl.alt = rowFull ? 'ON' : 'OFF';
     powerEl.classList.toggle('pulsing', rowFull);   /* powers ON (green) when the row is full */
     /* current flows through the pipes the moment the pattern is completed */
-    const patternDone = rowFull && !isRowComplete;
-    document.getElementById('screen-question').classList.toggle('current-on', patternDone);
+    document.getElementById('screen-question').classList.toggle('current-on', rowFull);
     /* main panel border turns green on a correct, completed pattern (Figma success screen) */
-    document.getElementById('panel-frame').src = assetURL(patternDone ? 'assets/figma/panel-green.svg' : 'assets/figma/panel.svg');
+    document.getElementById('panel-frame').src = assetURL(rowFull ? 'assets/figma/panel-green.svg' : 'assets/figma/panel.svg');
 
-    /* ── 7 switch slots ── */
+    /* ── 8 switch slots ── */
     const stepMs    = SWITCH_STEP_MS;
     const offsetMs  = SWITCH_OFFSET_MS;
     const prefilled = new Set(cfg.prefilled);
@@ -1974,11 +1854,6 @@
     for (let i = 0; i < cfg.seq.length; i++) {
       const delayMs = offsetMs + i * stepMs;
       const delay   = firstRender ? `${delayMs / 1000}s` : '0s';
-
-      if (isRowComplete) {
-        swRow.appendChild(makeSw(cfg.seq[i], 'complete-fill'));
-        continue;
-      }
 
       /* ── Pre-filled slot (shown from the start) ── */
       if (prefilled.has(i)) {
@@ -2012,14 +1887,12 @@
     /* ── Options ── */
     const optArea = document.getElementById('options-area');
     optArea.innerHTML = '';
-    if (isRowComplete) { optArea.classList.add('invisible'); return; }
-    optArea.classList.remove('invisible', 'reveal', 'hidden-initially');
+    optArea.classList.remove('reveal', 'hidden-initially');
     cfg.options.forEach(opt => {
-      const isCorrect      = opt === correct;
-      const isWrongOption  = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
-      /* options never glow now — the tutorial guides with the glowing +2 arc into the blank
-         slot instead, and the bulb hint screen just shows the +2 arrows */
-      const cls            = isWrongOption ? 'wrong-option' : 'option';
+      /* options never glow — the tutorial guides with the glowing +2 arc into the blank slot
+         instead, and the bulb hint just shows the +2 arrows */
+      const isWrongOption = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
+      const cls = isWrongOption ? 'wrong-option' : 'option';
       optArea.appendChild(makeSw(opt, cls, isWrongOption ? null : () => handleAnswer(opt)));
     });
     resetIdle();   /* (re)start the inactivity countdown for this turn */
@@ -2059,7 +1932,6 @@
     /* reset the top-left character to the idle static robot */
     setByteDancing(false);
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
-    tutorialGuide = false;          /* correct-option glow only appears at the tutorial prompt */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
@@ -2110,6 +1982,10 @@
         optArea.classList.add('reveal');
         sfxPop(700);   /* single pop — all four options appear together */
         setTimeout(() => optArea.classList.remove('reveal'), 1400);
+        /* Lock them NOW, not when the narration starts ~1.2s later: otherwise a fast player
+           could solve the whole row in that gap and then sit through the tutorial afterwards.
+           The dialogue queue unlocks them once the tutorial has finished speaking. */
+        _setOptionsLock(true);
 
         /* 4 — finally the text box slides in, THEN the bot speaks */
         setTimeout(() => {
@@ -2119,34 +1995,31 @@
           /* NOTE: the hint bulb stays hidden during Level 1 (the tutorial); it first appears
              on Level 2 when the real game starts (see loadLevelInPlace) */
           sfxBarOpen();
+          /* ── Level 1 is the guided tutorial (this entrance only ever runs for Level 1 —
+                Levels 2-4 come through loadLevelInPlace) ── */
           setTimeout(() => {
-            if (currentRow === 0) {
-              /* ── Level 1 is the guided tutorial ── */
-              queueBotText('Let us start fixing the switches.');
-              queueBotText('These switches are in a pattern.');
-              queueBotText('Let us read the pattern together.');
-              /* read the prefilled numbers aloud (2, 4, 6, 8, 10), highlighting each */
-              queueAction((done) => readPattern(ROWS_CONFIG[0], done));
-              queueBotText('We are adding 2 at each step.');
-              /* show the +2 hop arrows one by one — the 4 over the read pattern PLUS the arc
-                 that hops into the first blank slot (arc 4), so the blank arc reveals as part of
-                 the same animated sequence instead of popping in on its own at the prompt */
-              queueAction((done) => {
-                buildHintArrows(ROWS_CONFIG[0]);
-                document.getElementById('hint-arrows').classList.remove('hidden');
-                tutorialArrowsLocked = true;   /* keep the arrows up for the rest of Level 1 */
-                revealArrowsSeq(0, 4, 620, done);
-              });
-              queueBotText('We keep adding the same number!');
-              /* glow the 4 pattern arcs together (the blank arc stays static for now) */
-              queueAction((done) => { glowArrows(0, 3); setTimeout(done, 900); });
-              queueBotText('Tap the correct switch to continue the pattern.');
-              /* the blank arc is already on screen — `showBlankArc` just moves the glow onto it
-                 (clearing the pattern-arc glows) so it becomes the single pulsing guide; no pop */
-              queueAction((done) => { showBlankArc(); done(); });
-            } else {
-              queueBotText('Tap the correct switch.');
-            }
+            queueBotText('Let us start fixing the switches.');
+            queueBotText('These switches are in a pattern.');
+            queueBotText('Let us read the pattern together.');
+            /* read the prefilled numbers aloud (2, 4, 6, 8, 10), highlighting each */
+            queueAction((done) => readPattern(ROWS_CONFIG[0], done));
+            queueBotText('We are adding 2 at each step.');
+            /* show the +2 hop arrows one by one — the 4 over the read pattern PLUS the arc
+               that hops into the first blank slot (arc 4), so the blank arc reveals as part of
+               the same animated sequence instead of popping in on its own at the prompt */
+            queueAction((done) => {
+              buildHintArrows(ROWS_CONFIG[0]);
+              document.getElementById('hint-arrows').classList.remove('hidden');
+              tutorialArrowsLocked = true;   /* keep the arrows up for the rest of Level 1 */
+              revealArrowsSeq(0, 4, 620, done);
+            });
+            queueBotText('We keep adding the same number!');
+            /* glow the 4 pattern arcs together (the blank arc stays static for now) */
+            queueAction((done) => { glowArrows(0, 3); setTimeout(done, 900); });
+            queueBotText('Tap the correct switch to continue the pattern.');
+            /* the blank arc is already on screen — `showBlankArc` just moves the glow onto it
+               (clearing the pattern-arc glows) so it becomes the single pulsing guide; no pop */
+            queueAction((done) => { showBlankArc(); done(); });
           }, 450);
         }, 750);
       }, 560 + 1400);   /* after the box-deploy animation (1.4s) finishes */
@@ -2166,20 +2039,14 @@
     document.getElementById('bot-text').textContent = 'Tap the correct switch.';
 
     /* clear the previous level's completion state — everything else stays put */
-    const sq = document.getElementById('screen-question');
-    sq.classList.remove('current-on', 'celebrating', 'intro');
-    const panel = document.getElementById('main-panel');
-    panel.classList.remove('row-complete', 'well-done-active', 'opening');
+    document.getElementById('screen-question').classList.remove('current-on', 'intro');
+    document.getElementById('main-panel').classList.remove('opening');
     document.getElementById('panel-frame').src = assetURL('assets/figma/panel.svg');
-    document.getElementById('well-done-msg').classList.add('hidden');
     setByteDancing(false);
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
-    tutorialGuide = false;          /* the correct-option glow is tutorial-only */
     resetHint();   /* clear the previous level; the bulb stays HIDDEN now and only pops in
                       (with its appearance animation) after the player gets 2 wrongs on a slot */
-    const botBar = document.getElementById('bot-bar');
-    botBar.classList.remove('bar-hidden');     /* the text bar stays */
-    botBar.style.visibility = 'visible';
+    document.getElementById('bot-bar').classList.remove('bar-hidden');   /* the text bar stays */
 
     /* the new level's switches just appear (chrome already in place — no cascade) */
     firstRender = false; renderQuestion();
@@ -2201,31 +2068,31 @@
       setTimeout(() => {
         optArea.classList.remove('hidden-initially'); void optArea.offsetWidth; optArea.classList.add('reveal');
         sfxPop(700);
-        /* speak the prompt now that the options are tappable (the text is already shown) */
-        const vo = VOICE['Tap the correct switch.'];
-        if (vo) { try { vo.currentTime = 0; vo.play().catch(() => {}); } catch (e) {} }
+        /* SPEAK: prompt now that the options are tappable (the text is already shown).
+           Goes through the speech channel so an immediate tap cuts it instead of doubling up. */
+        speakNow(VOICE['Tap the correct switch.']);
         setTimeout(() => optArea.classList.remove('reveal'), 1400);
       }, 560 + 1400);
     }, 1150);   /* wait for the blast doors to open before deploying the options */
   }
 
   function handleAnswer(val) {
-    if (phase !== 'question' && phase !== 'hint') return;
-    if (timer) clearTimeout(timer);
+    if (phase !== 'question') return;
 
-    const cfg     = ROWS_CONFIG[currentRow];
+    const cfg = ROWS_CONFIG[currentRow];
+    /* Row already full → we're in the celebration window waiting on the level transition.
+       Bail BEFORE clearing `timer`, otherwise a stray tap on the (invisible, retracting)
+       options box would cancel the pending transition and wedge the game for good. */
+    if (grid[currentRow].length >= getUserPositions(cfg).length) return;
+
+    if (timer) clearTimeout(timer);
     const correct = getCorrect(cfg, grid[currentRow].length);
 
     if (val === correct) {
       sfxSwitchOn();          /* the switch flips ON for a correct pick */
-      const pts   = showHint ? 5 : wrongCount === 0 ? 15 : 10;
-      wrongCount  = 0; wrongAnswer = null; showHint = false;
+      wrongCount = 0; wrongAnswer = null; showHint = false;
       resetHint();   /* clear bulb glow + hop arrows now that this slot is solved */
-      streak++; score += pts;
       grid[currentRow] = [...grid[currentRow], val];
-      /* Level-1 tutorial: the guide glow follows the correct option automatically on the
-         next renderQuestion; just switch it off once the row is complete */
-      if (currentRow === 0 && grid[currentRow].length >= getUserPositions(cfg).length) tutorialGuide = false;
       /* reveal the +2 arc that points into the next blank slot (guides where the answer goes) */
       if (currentRow === 0) showBlankArc();
 
@@ -2253,6 +2120,8 @@
         const advance = () => {
           timer = setTimeout(() => {
             if (isLast) {
+              phase = 'complete';                          /* game over — stops the idle nudge */
+              if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
               playTransition(() => { showScreen('complete'); playEndVideo(); });
             } else {
               /* blast-door transition, then the next level loads in place (only options animate) */
@@ -2278,7 +2147,7 @@
          sparks + a soft sound. No spoken instruction (so it never repeats and the player
          can just try again), and nothing changes on the switch panel. */
       sfxWrong();
-      wrongAnswer = val; streak = 0; wrongCount++;
+      wrongAnswer = val; wrongCount++;
       phase = (wrongCount >= 2) ? 'wrong-second' : 'wrong';
       renderQuestion();
       spawnSparks(document.querySelector('#options-area .sw.wrong-option .tile'));
@@ -2487,9 +2356,15 @@
       if (isVideo) { try { el.load(); el.play(); } catch (e) {} }
     });
   }
+  /* assets the stylesheet paints (not via [data-asset]) — fed to CSS through a custom property */
+  const _CSS_ASSET_VARS = { 'assets/background.webp': '--bg-img', 'assets/figma/tile.webp': '--tile-img' };
+
   function _applyAsset(path) {
     const u = assetURL(path);
     const isBlob = u.indexOf('blob:') === 0;
+    if (_CSS_ASSET_VARS[path]) {
+      document.documentElement.style.setProperty(_CSS_ASSET_VARS[path], 'url("' + u + '")');
+    }
     (_assetEls[path] || []).forEach(el => {
       /* video error handling lives in playEndVideo; here we guard <img> only */
       if (isBlob && el.tagName === 'IMG') _blobFallback(el, path, false);
