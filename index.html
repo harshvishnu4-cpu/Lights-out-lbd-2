@@ -488,29 +488,56 @@
     .hint-arrow img {
       display: block; width: 100%; height: auto;
       filter: drop-shadow(0 0 7px rgba(12,228,249,.85));
+      transition: filter .35s ease;   /* eases into/out of the lit state below */
     }
     .hint-arrow.show { opacity: 1; }
     .hint-arrow.show img { animation: hintArrowIn .5s cubic-bezier(0.34,1.56,0.64,1) both; }
-    /* glow pulse — added when the bot says "we keep adding the same number".
-       Deliberately strong: it has to read as "look HERE" from across a classroom, so it
-       pumps size as well as light (a pure drop-shadow change is far too subtle). */
-    .hint-arrow.glow img { animation: hintArrowGlow 0.85s ease-in-out infinite; }
     @keyframes hintArrowIn {
       from { opacity: 0; transform: translateY(-10px) scale(0.85); }
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
-    @keyframes hintArrowGlow {
-      0%, 100% {
-        transform: scale(1);
-        filter: drop-shadow(0 0 8px rgba(12,228,249,.9)) brightness(1);
-      }
-      50% {
-        transform: scale(1.28);
-        filter: drop-shadow(0 0 14px rgba(190,252,255,1))
-                drop-shadow(0 0 34px rgba(12,228,249,.95))
-                drop-shadow(0 0 62px rgba(12,228,249,.6))
-                brightness(1.75) saturate(1.25);
-      }
+    /* LIT state — a steady brighter arc: no motion, no size change. This is the arcs' RESTING
+       look for the whole level; movement belongs only to the one scripted beat below, because a
+       pulse left looping across several arcs all the time was noisy and hard to read.
+       Keep the radii SMALL. These arcs render at 120px, and wide blurs (16px+) bloom the
+       solid "+N" glyph into a white blob while barely touching the thin dashed arc — which
+       is exactly what made the number look like the only thing lighting up. One crisp 1.2px
+       rim plus a single 6px halo lifts the whole shape and stays legible. */
+    .hint-arrow.glow img {
+      filter: drop-shadow(0 0 1.2px rgba(255,255,255,1))
+              drop-shadow(0 0 6px rgba(12,228,249,.95))
+              brightness(1.45) saturate(1.1);
+    }
+
+    /* EMPHASIS BEAT — scoped to the one line "We keep adding the same number!", then off.
+       Two animations on one 0.8s rhythm; if you retune the period, change BOTH or they drift.
+         • pump  on the wrapper — transform-origin bottom, so the arc grows UPWARD and the
+           arrowhead stays planted over the switch it points at.
+         • flare on the img    — rides on top of .glow, staying inside the same small-radius
+           budget as the resting state (see the note above: a 26px+ halo bleaches the solid
+           "+N" glyph while barely lighting the thin dashed arc).
+       Must come AFTER .show/.glow — equal specificity, so source order decides the winner.
+       All arcs pulse IN UNISON, deliberately: a stagger would read as "different numbers",
+       and "the same jump every time" is the whole lesson. */
+    .hint-arrow.pulse {
+      animation: hintArrowPump .8s ease-in-out infinite;
+      transform-origin: center bottom;
+    }
+    .hint-arrow.pulse img {
+      animation: hintArrowFlare .8s ease-in-out infinite;
+    }
+    @keyframes hintArrowPump {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.09); }
+    }
+    @keyframes hintArrowFlare {
+      0%, 100% { filter: drop-shadow(0 0 1.2px rgba(255,255,255,1))
+                         drop-shadow(0 0 6px rgba(12,228,249,.95))
+                         brightness(1.45) saturate(1.1); }
+      50%      { filter: drop-shadow(0 0 1.2px rgba(255,255,255,1))
+                         drop-shadow(0 0 10px rgba(12,228,249,1))
+                         drop-shadow(0 0 18px rgba(12,228,249,.45))
+                         brightness(1.62) saturate(1.15); }
     }
 
 
@@ -1073,6 +1100,9 @@
     _setOptionsLock(false);
     if (_typeTimer) { clearInterval(_typeTimer); _typeTimer = null; }
     _stopAllSpeech();
+    /* the arc pump is tied to a specific clip's onDone — if the queue is dropped instead
+       (level change / skip), that callback never runs, so kill the beat here too */
+    clearArrowPulse();
   }
 
   /* ── SFX (Web Audio API — no external files) ─────── */
@@ -1626,10 +1656,27 @@
       setTimeout(next, stepMs);
     })();
   }
-  /* make arrows [from..to] pulse together */
+  /* light arrows [from..to] — a steady brighter state, no pulsing (see .hint-arrow.glow) */
   function glowArrows(from, to) {
     const arrows = _arrows();
     for (let i = from; i <= to && i < arrows.length; i++) if (arrows[i]) arrows[i].classList.add('glow');
+  }
+  /* dim every arc back to its resting state (and stop any emphasis beat) */
+  function clearArrowGlow() {
+    _arrows().forEach(a => a.classList.remove('glow', 'pulse'));
+  }
+  /* pump arcs [from..to] together — the emphasis beat for "We keep adding the same number!".
+     Only ever run this on arcs that are already settled: .pulse and the entry animation both
+     target the img's `animation`, so pulsing an arc mid-pop cancels hintArrowIn. */
+  function pulseArrows(from, to, on) {
+    const arrows = _arrows();
+    for (let i = from; i <= to && i < arrows.length; i++) {
+      if (arrows[i]) arrows[i].classList.toggle('pulse', on);
+    }
+  }
+  /* stop the beat everywhere — safety net for skips / level changes */
+  function clearArrowPulse() {
+    _arrows().forEach(a => a.classList.remove('pulse'));
   }
   /* Level-1 tutorial: glow the "+2" hop ARC that points INTO the current blank slot — the
      "answer goes here" guide (an arrow arc, not a plain arrow). It clears every other arc's
@@ -1639,8 +1686,8 @@
      arc into the next blank slot. */
   function showBlankArc() {
     if (currentRow !== 0 || !tutorialArrowsLocked) return;
+    clearArrowGlow();   /* only the blank arc glows, and with no leftover wave offset */
     const arrows = _arrows();
-    arrows.forEach(a => a.classList.remove('glow'));   /* only the blank arc glows (single pulse) */
     const up = getUserPositions(ROWS_CONFIG[0]);
     const filled = grid[0].length;
     if (filled >= up.length) return;      /* row complete — no blank left */
@@ -2030,9 +2077,14 @@
               tutorialArrowsLocked = true;   /* keep the arrows up for the rest of Level 1 */
               revealArrowsSeq(0, 4, 620, done);
             });
-            queueBotText('We keep adding the same number!');
-            /* glow the 4 pattern arcs together (the blank arc stays static for now) */
-            queueAction((done) => { glowArrows(0, 3); setTimeout(done, 900); });
+            /* Light ALL FIVE arcs together — including the one hopping into the first blank.
+               Leaving that one out made it look like it was lagging behind the other four.
+               `done()` is synchronous here, so this fires as the NEXT line starts speaking:
+               glow + pump come up exactly on the word, not a beat late. */
+            queueAction((done) => { glowArrows(0, 4); pulseArrows(0, 4, true); done(); });
+            /* The pump is scoped to THIS clip and stops when it ends — the arcs are loudest
+               precisely while the bot names the idea, then hand attention to the switches. */
+            queueBotText('We keep adding the same number!', null, () => pulseArrows(0, 4, false));
             queueBotText('Tap the correct switch to continue the pattern.');
             /* the blank arc is already on screen — `showBlankArc` just moves the glow onto it
                (clearing the pattern-arc glows) so it becomes the single pulsing guide; no pop */

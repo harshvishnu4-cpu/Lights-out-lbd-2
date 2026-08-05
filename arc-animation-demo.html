@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arc Animation Demo — "−N" hop arcs</title>
+<style>
+  :root {
+    --cyan: #0ce4f9;
+    --panel: #0d2233;
+    --tile:  #12384f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 28px;
+    background: radial-gradient(ellipse at 50% 30%, #14324a 0%, #081420 70%);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: #cfeef7;
+  }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: .04em; }
+  h1 small { color: #6fa9bd; font-weight: 400; }
+
+  /* ── Panel: a centred row of tiles with an arc band above ── */
+  #panel {
+    position: relative;
+    width: 920px; max-width: 96vw;
+    height: 260px;
+    background: linear-gradient(180deg, #10293c, var(--panel));
+    border: 1px solid #1d4a66;
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+    overflow: hidden;
+  }
+  #switch-row {
+    position: absolute; left: 0; right: 0; bottom: 26px;
+    display: flex; justify-content: center; gap: var(--sw-gap, 14px);
+  }
+  .switch {
+    width: var(--sw-tile, 96px); height: 96px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #1a4a66, var(--tile));
+    border: 2px solid #2a6f96;
+    border-radius: 14px;
+    font-size: 34px; font-weight: 700; color: #eafcff;
+    text-shadow: 0 0 10px rgba(12,228,249,.6);
+    box-shadow: inset 0 2px 6px rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.4);
+  }
+  .switch.blank { color: #3d7c99; text-shadow: none; }
+
+  /* ── Hint-arc overlay: full-panel, never eats a tap ── */
+  #hint-arrows {
+    position: absolute; inset: 0;
+    z-index: 4; pointer-events: none;
+  }
+  #hint-arrows.hidden { display: none; }
+  .hint-arrow { position: absolute; opacity: 0; }   /* hidden until revealed with .show */
+  .hint-arrow svg {
+    display: block; width: 100%; height: auto;
+    filter: drop-shadow(0 0 7px rgba(12,228,249,.85));
+    transition: filter .35s ease;   /* eases into/out of the lit states below */
+  }
+  .hint-arrow.show { opacity: 1; }
+  .hint-arrow.show svg { animation: hintArrowIn .5s cubic-bezier(0.34,1.56,0.64,1) both; }
+  @keyframes hintArrowIn {
+    from { opacity: 0; transform: translateY(-10px) scale(0.85); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Steady lit state — brighter, no motion. Radii kept small: wide blurs bloom the solid
+     "−N" glyph into a blob while barely touching the thin dashed arc. */
+  .hint-arrow.glow svg {
+    filter: drop-shadow(0 0 1.2px rgba(255,255,255,1))
+            drop-shadow(0 0 6px rgba(12,228,249,.95))
+            brightness(1.45) saturate(1.1);
+  }
+
+  /* Emphasis beat — pump on the wrapper (grows upward, arrowhead stays planted) +
+     flare on the svg. Both loop at 0.8s so they never drift apart. */
+  .hint-arrow.pulse { animation: hintArrowPump 0.8s ease-in-out infinite; transform-origin: center bottom; }
+  .hint-arrow.pulse svg { animation: hintArrowFlare 0.8s ease-in-out infinite; }
+  @keyframes hintArrowPump {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.09); }
+  }
+  @keyframes hintArrowFlare {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(12,228,249,.9)) brightness(1.08); }
+    50%      { filter: drop-shadow(0 0 26px rgba(12,228,249,1))
+                       drop-shadow(0 0 46px rgba(12,228,249,.55)) brightness(1.42); }
+  }
+
+  /* ── Demo controls ── */
+  #controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  #controls button, #controls select {
+    padding: 9px 16px;
+    background: #123249; color: #bfeaf6;
+    border: 1px solid #2a6f96; border-radius: 9px;
+    font-size: 14px; cursor: pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  #controls button:hover { background: #1a4a66; }
+  #controls button:active { transform: scale(.96); }
+  #status { font-size: 13px; color: #6fa9bd; min-height: 1.2em; }
+</style>
+</head>
+<body>
+
+<h1>"−N" hop arcs <small>— pop-in → glow → pulse</small></h1>
+
+<div id="panel">
+  <div id="hint-arrows" class="hidden"></div>
+  <div id="switch-row"></div>
+</div>
+
+<div id="controls">
+  <select id="seq-pick">
+    <option value="16,14,12,10,8,6,4,2">Level 1 — step −2</option>
+    <option value="40,35,30,25,20,15,10,5">Level 3 — step −5</option>
+    <option value="80,70,60,50,40,30,20,10">Level 4 — step −10</option>
+  </select>
+  <button id="btn-hint">Hint reveal (all, staggered)</button>
+  <button id="btn-tutorial">Tutorial reveal (one by one)</button>
+  <button id="btn-glow">Glow all</button>
+  <button id="btn-pulse">Pulse all</button>
+  <button id="btn-reset">Reset</button>
+</div>
+<div id="status"></div>
+
+<script>
+/* ── Geometry: arc positions are COMPUTED in panel space, mirroring the centred flex
+   row — they never depend on layout having settled. These constants duplicate the CSS
+   (--sw-tile / --sw-gap): change one and the arcs drift. ── */
+const SW_TILE = 96, SW_GAP = 14, SW_PITCH = SW_TILE + SW_GAP;
+const AW = 92;          /* arc width in panel px */
+const ARC_TOP = 58;     /* band above the tiles, arrowheads just above them */
+
+const panel   = document.getElementById('panel');
+const row     = document.getElementById('switch-row');
+const wrap    = document.getElementById('hint-arrows');
+const status_ = document.getElementById('status');
+
+function panelW() { return panel.clientWidth; }
+
+/* panel-relative x-centre of switch i, matching the centred flex row in CSS */
+function switchCenterX(i, count) {
+  const rowW = count * SW_TILE + (count - 1) * SW_GAP;
+  return (panelW() - rowW) / 2 + i * SW_PITCH + SW_TILE / 2;
+}
+
+/* ── The art, drawn instead of loaded: dashed hop arc + arrowhead + "−N" label.
+   In the real game the number is baked into a webp per step (HINT_ARROW_SRC);
+   here one SVG template takes the step as text, so any step "just works". ── */
+function arcSVG(step) {
+  const label = (step > 0 ? '+' : '−') + Math.abs(step);
+  return `
+  <svg viewBox="0 0 120 82" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 12 74 Q 60 -14 104 66"
+          fill="none" stroke="#0ce4f9" stroke-width="4.5"
+          stroke-linecap="round" stroke-dasharray="10 9"/>
+    <path d="M 112 78 L 96 66 L 106 58 Z" fill="#0ce4f9"/>
+    <text x="58" y="24" text-anchor="middle"
+          font-family="Segoe UI, system-ui, sans-serif" font-size="26"
+          font-weight="800" fill="#eafcff"
+          stroke="#0ce4f9" stroke-width="0.8" paint-order="stroke">${label}</text>
+  </svg>`;
+}
+
+/* ── Build: one arc per gap between switches, centred on the seam ── */
+function buildHintArrows(seq) {
+  wrap.innerHTML = '';
+  const count = seq.length;
+  const step  = seq[1] - seq[0];
+  for (let i = 0; i < count - 1; i++) {
+    const mid = switchCenterX(i, count) + SW_PITCH / 2;   /* seam between i and i+1 */
+    const a = document.createElement('div');
+    a.className = 'hint-arrow';
+    a.dataset.gap = i;                     /* guards against double-building a gap */
+    a.style.left  = (mid - AW / 2) + 'px';
+    a.style.top   = ARC_TOP + 'px';
+    a.style.width = AW + 'px';
+    a.innerHTML = arcSVG(step);
+    wrap.appendChild(a);
+  }
+}
+function _arrows() { return document.querySelectorAll('#hint-arrows .hint-arrow'); }
+
+/* ── Reveal helpers ── */
+
+/* hint path: everything at once, 70ms left-to-right ripple */
+function showAllArrows() {
+  _arrows().forEach((a, i) => setTimeout(() => a.classList.add('show'), i * 70));
+}
+
+/* tutorial path: one at a time with a rising pop, done() after the last */
+function revealArrowsSeq(from, to, stepMs, done) {
+  const arrows = _arrows();
+  let i = from;
+  (function next() {
+    if (i > to) { if (done) setTimeout(done, 300); return; }
+    if (arrows[i]) { arrows[i].classList.add('show'); sfxPop(560 + (i - from) * 45); }
+    i++;
+    setTimeout(next, stepMs);
+  })();
+}
+
+function glowAllArrows()  { _arrows().forEach(a => a.classList.add('glow')); }
+/* pulse hits every arc IN UNISON — a stagger would read as "different numbers" */
+function pulseAllArrows(on) { _arrows().forEach(a => a.classList.toggle('pulse', on)); }
+
+function resetArrows() {
+  wrap.classList.add('hidden');
+  wrap.innerHTML = '';
+  status_.textContent = '';
+}
+
+/* ── Tiny pop sfx (WebAudio, no assets) ── */
+let _ac = null;
+function sfxPop(freq) {
+  try {
+    _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = _ac.createOscillator(), g = _ac.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.18, _ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, _ac.currentTime + 0.18);
+    o.connect(g).connect(_ac.destination);
+    o.start(); o.stop(_ac.currentTime + 0.2);
+  } catch (e) { /* audio blocked — arcs still animate */ }
+}
+
+/* ── Demo wiring ── */
+function currentSeq() {
+  return document.getElementById('seq-pick').value.split(',').map(Number);
+}
+
+function renderRow(seq) {
+  row.innerHTML = '';
+  seq.forEach((n, i) => {
+    const t = document.createElement('div');
+    const blank = i >= 3;                 /* last few slots read as "to fill" */
+    t.className = 'switch' + (blank ? ' blank' : '');
+    t.textContent = blank ? '?' : n;
+    row.appendChild(t);
+  });
+}
+
+function freshBuild() {
+  renderRow(currentSeq());
+  buildHintArrows(currentSeq());
+  wrap.classList.remove('hidden');
+}
+
+document.getElementById('btn-hint').addEventListener('click', () => {
+  freshBuild();
+  showAllArrows();
+  status_.textContent = 'Hint path: all gaps at once, 70ms stagger.';
+});
+
+document.getElementById('btn-tutorial').addEventListener('click', () => {
+  freshBuild();
+  status_.textContent = 'Tutorial path: one arc per beat, rising pop…';
+  revealArrowsSeq(0, _arrows().length - 1, 620, () => {
+    glowAllArrows();
+    pulseAllArrows(true);
+    status_.textContent = '“We keep subtracting the same number.” — glow + pulse in unison';
+    setTimeout(() => {
+      pulseAllArrows(false);              /* pulse is scoped to one dialogue beat */
+      status_.textContent = 'Pulse beat over — arcs settle to steady glow.';
+    }, 3200);
+  });
+});
+
+document.getElementById('btn-glow').addEventListener('click', () => {
+  if (!_arrows().length) { freshBuild(); showAllArrows(); }
+  setTimeout(glowAllArrows, _arrows().length * 70 + 100);
+  status_.textContent = 'Steady lit state — no motion, small crisp halo.';
+});
+
+document.getElementById('btn-pulse').addEventListener('click', () => {
+  if (!_arrows().length) { freshBuild(); showAllArrows(); }
+  const wait = _arrows().length * 70 + 550;   /* never pulse an arc as it appears —
+                                                 .pulse replaces the entry animation */
+  setTimeout(() => { glowAllArrows(); pulseAllArrows(true); }, wait);
+  status_.textContent = 'Emphasis beat — pump (scale 1→1.09, origin bottom) + flare, 0.8s loop.';
+});
+
+document.getElementById('btn-reset').addEventListener('click', resetArrows);
+document.getElementById('seq-pick').addEventListener('change', () => { resetArrows(); renderRow(currentSeq()); });
+
+/* rebuild positions on resize — computed geometry, not measured */
+window.addEventListener('resize', () => {
+  if (!wrap.classList.contains('hidden')) {
+    const hadGlow  = !!document.querySelector('.hint-arrow.glow');
+    const hadPulse = !!document.querySelector('.hint-arrow.pulse');
+    buildHintArrows(currentSeq());
+    _arrows().forEach(a => a.classList.add('show'));
+    if (hadGlow)  glowAllArrows();
+    if (hadPulse) pulseAllArrows(true);
+  }
+});
+
+renderRow(currentSeq());
+</script>
+</body>
+</html>
