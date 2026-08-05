@@ -1896,6 +1896,7 @@
     }
 
     /* ── Options ── */
+    const correct = getCorrect(cfg, row.length);   /* undefined once the row is full — matches nothing */
     const optArea = document.getElementById('options-area');
     optArea.innerHTML = '';
     optArea.classList.remove('reveal', 'hidden-initially');
@@ -1903,8 +1904,13 @@
       /* options never glow — the tutorial guides with the glowing +2 arc into the blank slot
          instead, and the bulb hint just shows the +2 arrows */
       const isWrongOption = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
-      const cls = isWrongOption ? 'wrong-option' : 'option';
-      optArea.appendChild(makeSw(opt, cls, isWrongOption ? null : () => handleAnswer(opt)));
+      /* Level 1 is the guided tutorial: ONLY the correct switch responds. A wrong tap there
+         would contradict the "+2 goes here" arc the bot just walked through, so the other
+         three are inert (no handler at all → no click, no hover, no wrong feedback).
+         Levels 2-4 are the real game and accept any tap. */
+      const inert = isWrongOption || (currentRow === 0 && opt !== correct);
+      const cls = isWrongOption ? 'wrong-option' : (inert ? 'inert' : 'option');
+      optArea.appendChild(makeSw(opt, cls, inert ? null : () => handleAnswer(opt)));
     });
     resetIdle();   /* (re)start the inactivity countdown for this turn */
   }
