@@ -879,7 +879,10 @@
     'We keep adding the same number!',
     'Tap the correct switch to continue the pattern.',
     'Tap the correct switch.',
-    'Follow the pattern!',
+    /* hint lines — one per step value, picked by level (see HINT_VOICE) */
+    'Add 2 to continue the pattern.',
+    'Add 3 to continue the pattern.',
+    'Add 5 to continue the pattern.',
     'Good job! You fixed these switches.',
     'Wuhoo! The switches are fixed.',
     'Well done! All the switches are fixed.'
@@ -1609,6 +1612,16 @@
      already has the step baked in (arrow arc = +2, arrow arc 3 = +3, arrow arc 2 = +5). */
   const SW_TILE = 128, SW_GAP = 23, SW_PITCH = SW_TILE + SW_GAP, PANEL_W = 1573.948;
   const HINT_ARROW_SRC = { 2: 'assets/arrow arc.webp', 3: 'assets/arrow arc 3.webp', 5: 'assets/arrow arc 2.webp' };
+  /* Spoken hint line, keyed by the level's step — it NAMES the number instead of the old
+     generic "Follow the pattern!", so the voice says the same thing the arcs show.
+     Keyed exactly like HINT_ARROW_SRC above, and covers every step the levels use
+     (L1 +2, L2 +3, L3 +5, L4 +2). Each string must also be in VOICE_LINES, which is what
+     creates its audio element and gets the clip preloaded. */
+  const HINT_VOICE = {
+    2: 'Add 2 to continue the pattern.',
+    3: 'Add 3 to continue the pattern.',
+    5: 'Add 5 to continue the pattern.',
+  };
   let hintArmed = false;
   let tutorialArrowsLocked = false;   /* keep the +2 arrows on screen through the Level-1 tutorial */
 
@@ -1732,11 +1745,18 @@
     const b = document.getElementById('hint-btn');
     if (b) { b.classList.remove('armed'); b.classList.add('used'); }
     sfxPop(720);
-    buildHintArrows(ROWS_CONFIG[currentRow]);
+    const cfg = ROWS_CONFIG[currentRow];
+    buildHintArrows(cfg);
     document.getElementById('hint-arrows').classList.remove('hidden');
     showAllArrows();
     renderQuestion();                 /* makes the correct option glow (showHint) */
-    queueBotText('Follow the pattern!');
+    /* speak the step this level actually uses — same source of truth as the arc art
+       (cfg.seq[1] - cfg.seq[0]), so the line can't disagree with the "+N" on screen */
+    const step = cfg.seq[1] - cfg.seq[0];
+    /* An uncovered step falls back to the old generic wording, which has no entry in
+       VOICE_LINES — so it types silently rather than speaking a WRONG number out loud
+       (unlike HINT_ARROW_SRC, which quietly falls back to the +2 art). */
+    queueBotText(HINT_VOICE[step] || 'Follow the pattern!');
   }
 
   /* ── Inactivity nudge: if the player is idle ~10s during their turn, bounce the options ── */
@@ -2396,7 +2416,10 @@
     "audio/16.ogg": 10430, "audio/25.ogg": 10839, "audio/24.ogg": 10912, "audio/35.ogg": 10918,
     "assets/figma/options-box.svg": 11520, "assets/figma/panel.svg": 11530,
     "assets/figma/panel-green.svg": 11531, "assets/figma/connector.webp": 14054,
-    "assets/background.webp": 16230, "audio/Follow the pattern!.ogg": 17102,
+    "assets/background.webp": 16230,
+    "audio/Add 3 to continue the pattern.ogg": 17934,
+    "audio/Add 5 to continue the pattern.ogg": 17942,
+    "audio/Add 2 to continue the pattern.ogg": 18706,
     "audio/Tap the correct switch.ogg": 20734,
     "audio/Let us start fixing the switches.ogg": 26304, "audio/These switches are in a pattern.ogg": 29514,
     "audio/Let us read the pattern together.ogg": 31143, "audio/We keep adding the same number!.ogg": 31596,
