@@ -16,4 +16,5 @@ desktop.ini
 index.html.*
 
 # ── Design / working docs: keep in VCS, but exclude from any production deploy bundle ──
-# (PROGRESS.md is a design doc — don't ship it to the game's public host)
+# docs/ (design notes) and demo/ (standalone effect demos) are reference material, not the
+# game. Ship only index.html + assets/ + audio/ to the game's public host.

@@ -16,8 +16,8 @@
        fallback if a fetch fails — without this the stylesheet re-requests them itself and
        "loaded == local" would not hold for the tile art. */
     :root {
-      --bg-img:   url('assets/background.webp');
-      --tile-img: url('assets/figma/tile.webp');
+      --bg-img:   url('assets/img/background.webp');
+      --tile-img: url('assets/img/tile.webp');
     }
 
     html, body {
@@ -462,7 +462,7 @@
       animation: guideGlowPulse 1.25s ease-in-out infinite;
     }
 
-    /* ── Hint button (yellow bulb, right end of the bot bar) — art from assets/hint-yellow.svg ── */
+    /* ── Hint button (yellow bulb, right end of the bot bar) — art from assets/svg/hint-yellow.svg ── */
     #hint-btn {
       position: absolute;
       left: 1541px; top: 62px;
@@ -750,10 +750,10 @@
 
   <!-- ── INTRO ─────────────────────────────────── -->
   <div id="screen-intro">
-    <img id="title-screen-img" data-asset="assets/title screen.webp" alt="Lights Out" />
+    <img id="title-screen-img" data-asset="assets/img/title screen.webp" alt="Lights Out" />
     <!-- PLAY starts hidden; the preloader reveals it (pop-in) only at 100% -->
     <button class="btn-play boot-hidden" onclick="handleStart()" aria-label="Play">
-      <img data-asset="assets/play button.svg" alt="Play" />
+      <img data-asset="assets/svg/play button.svg" alt="Play" />
     </button>
     <!-- themed loading bar sits where PLAY is, until every asset is local -->
     <div id="boot-bar-wrap">
@@ -766,59 +766,59 @@
   <div id="screen-question" class="hidden">
 
     <!-- Robot -->
-    <div id="qrobot"><img data-asset="assets/figma/robot.webp" alt="robot" /></div>
-    <img id="byte-dance" data-asset="assets/robot dance.webp" alt="" />
+    <div id="qrobot"><img data-asset="assets/img/robot.webp" alt="robot" /></div>
+    <img id="byte-dance" data-asset="assets/img/robot dance.webp" alt="" />
 
     <!-- Top text bar (starts empty; text is typed in by the dialogue queue) -->
     <div id="bot-bar">
-      <img class="frame" data-asset="assets/figma/textbox.svg" alt="" />
+      <img class="frame" data-asset="assets/svg/textbox.svg" alt="" />
       <span id="bot-text"></span>
     </div>
 
     <!-- Power button (top-right) -->
-    <img id="power-btn" data-asset="assets/Red button.webp" alt="power" />
+    <img id="power-btn" data-asset="assets/img/Red button.webp" alt="power" />
 
     <!-- Hint button (bulb) — hidden until the bot bar appears; glows after 2 wrong taps -->
     <button id="hint-btn" class="hb-hidden" aria-label="Show hint">
-      <img data-asset="assets/hint-yellow.svg" alt="Hint" />
+      <img data-asset="assets/svg/hint-yellow.svg" alt="Hint" />
     </button>
 
     <!-- Glowing pipe connectors -->
     <div class="connector cn-h" style="left:1474px;top:423px;width:324.752px;height:69.01px;">
-      <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /></div>
+      <div class="cclip"><img data-asset="assets/img/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /><img class="flow" data-asset="assets/img/connector.webp" style="height:371.02%;left:0;top:-135.51%;width:216.25%;" /></div>
     </div>
     <div class="connector cn-v" style="left:1752px;top:129px;width:69px;height:304px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:304px;height:69px;">
-          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /></div>
+          <div class="cclip"><img data-asset="assets/img/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /><img class="flow" data-asset="assets/img/connector.webp" style="height:371.07%;left:-134.35%;top:-135.53%;width:231.01%;" /></div>
         </div>
       </div>
     </div>
     <div class="connector cn-v cn-small" style="left:1752px;top:420px;width:69.01px;height:48.713px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:48.713px;height:69.01px;">
-          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.02%;left:-666.67%;top:-135.51%;width:1441.67%;" /></div>
+          <div class="cclip"><img data-asset="assets/img/connector.webp" style="height:371.02%;left:-666.67%;top:-135.51%;width:1441.67%;" /></div>
         </div>
       </div>
     </div>
     <div class="connector opt-pipe" style="left:542px;top:648px;width:69px;height:155px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:155px;height:69px;">
-          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
+          <div class="cclip"><img data-asset="assets/img/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" data-asset="assets/img/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
         </div>
       </div>
     </div>
     <div class="connector opt-pipe" style="left:1108px;top:648px;width:69px;height:155px;display:flex;align-items:center;justify-content:center;">
       <div style="transform:rotate(-90deg);flex:none;">
         <div style="position:relative;width:155px;height:69px;">
-          <div class="cclip"><img data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" data-asset="assets/figma/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
+          <div class="cclip"><img data-asset="assets/img/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /><img class="flow" data-asset="assets/img/connector.webp" style="height:371.07%;left:0.16%;top:-135.53%;width:453.08%;" /></div>
         </div>
       </div>
     </div>
 
     <!-- Main panel -->
     <div id="main-panel">
-      <img id="panel-frame" data-asset="assets/figma/panel.svg" alt="" />
+      <img id="panel-frame" data-asset="assets/svg/panel.svg" alt="" />
       <!-- vent bars overlaid on the panel housing (recolour by game state) -->
       <div class="vent-bars">
         <span class="vent-bar" style="left:701.3px;top:24.8px;width:52.3px;height:19.4px;"></span>
@@ -832,7 +832,7 @@
 
     <!-- Options box -->
     <div id="options-box">
-      <img class="frame" data-asset="assets/figma/options-box.svg" alt="" />
+      <img class="frame" data-asset="assets/svg/options-box.svg" alt="" />
       <div id="options-area"></div>
     </div>
 
@@ -841,7 +841,7 @@
 
   <!-- ── COMPLETE ──────────────────────────────── -->
   <div id="screen-complete" class="hidden">
-    <video id="end-video" data-asset="assets/end-video.webm" playsinline preload="none"></video>
+    <video id="end-video" data-asset="assets/video/end-video.webm" playsinline preload="none"></video>
   </div>
 
   <!-- ── Confetti burst (energy shards / sparks on pattern complete) ── -->
@@ -869,11 +869,23 @@
 <script>
   /* ── Media formats ───────────────────────────────────────────────────────────────────
      All media uses efficient, widely-supported open formats:
-       • video  → WebM (VP9 video + Opus audio, yuv420p)   assets/end-video.webm
-       • audio  → Ogg/Opus (64k voice, 96k SFX)            audio/*.ogg
-       • images → WebP (q≈80–85), vectors stay SVG          assets/*.webp, *.svg
+       • video  → WebM (VP9 video + Opus audio, yuv420p)   assets/video/*.webm
+       • audio  → Ogg/Opus (64k voice, 96k SFX)            audio/{vo,num,sfx}/*.ogg
+       • images → WebP (q≈80–85), vectors stay SVG          assets/{img,arc}/*.webp, assets/svg/*.svg
      Browser support: WebM/VP9 + Ogg/Opus play in Chrome, Edge, Firefox, and recent Safari
-     (Safari 14.1+ / macOS 11+ / iOS 14.1+ for Opus & VP9). Older Safari is the only gap. */
+     (Safari 14.1+ / macOS 11+ / iOS 14.1+ for Opus & VP9). Older Safari is the only gap.
+
+     ── Folders ──
+       assets/img/    raster art (panel tiles, robot, buttons, backgrounds)
+       assets/svg/    vector chrome (panel frames, option box, textbox, play button)
+       assets/arc/    the "+N" hop-arc art, one per step value (see HINT_ARROW_SRC)
+       assets/video/  the end-of-game video
+       audio/vo/      one clip per dialogue line — NAME IS DERIVED FROM THE LINE TEXT (below)
+       audio/num/     spoken numbers, <n>.ogg
+       audio/sfx/     recorded sound effects (the rest of the SFX are synthesised in-code)
+     Names keep their spaces and punctuation on purpose: audio/vo/ filenames are generated
+     from the dialogue strings, so renaming them means replacing that rule with an explicit
+     map. Every path also appears in ASSET_SIZES at the bottom — keep the two in step. */
 
   /* ── Asset resolver (filled in by the preloader below) ───────────────────────────────
      `_assetBlob[path]` holds a local blob: URL once the file is fetched (or the original
@@ -887,9 +899,10 @@
   function mkAudio(url) { const a = new Audio(); a.preload = 'none'; AUDIO_REG.push({ url: url, el: a }); return a; }
 
   /* ── Voice-over lines ─────────────────────────────────
-     One recorded clip per dialogue line. The file name is the line text with any trailing
-     "." dropped, + ".ogg" (e.g. "We keep adding the same number!.ogg"). `queueBotText`
-     auto-plays the matching clip, so every narration/prompt/win line is spoken. */
+     One recorded clip per dialogue line, in audio/vo/. The file name is the line text with any
+     trailing "." dropped, + ".ogg" (e.g. "audio/vo/We keep adding the same number!.ogg") —
+     so adding a line here is all it takes, provided the clip is named to match.
+     `queueBotText` auto-plays it, so every narration/prompt/win line is spoken. */
   const VOICE_LINES = [
     'Let us start fixing the switches.',
     'These switches are in a pattern.',
@@ -907,19 +920,19 @@
     'Well done! All the switches are fixed.'
   ];
   const VOICE = {};
-  VOICE_LINES.forEach(t => { VOICE[t] = mkAudio('audio/' + t.replace(/\.$/, '') + '.ogg'); });
+  VOICE_LINES.forEach(t => { VOICE[t] = mkAudio('audio/vo/' + t.replace(/\.$/, '') + '.ogg'); });
 
   /* ── Current-flow SFX (real recordings) — a sharp zap + a sustained energy surge that
      play when the completed pattern powers the circuit ── */
-  const sndElectricity  = mkAudio('audio/electricity.ogg'); sndElectricity.volume = 0.9;
-  const sndEnergy       = mkAudio('audio/energy.ogg');       sndEnergy.volume      = 0.75;
+  const sndElectricity  = mkAudio('audio/sfx/electricity.ogg'); sndElectricity.volume = 0.9;
+  const sndEnergy       = mkAudio('audio/sfx/energy.ogg');       sndEnergy.volume      = 0.75;
 
-  /* ── Spoken-number clips (all the numbers we have audio/<n>.ogg files for) ── */
+  /* ── Spoken-number clips (all the numbers we have audio/num/<n>.ogg files for) ── */
   /* Only the numbers the game actually speaks: the L1 pattern read aloud (2,4,6,8,10) plus
      every value the player places across the 4 levels (12,14,16 / 18,21,24 / 25,30,35 / 11,13,15). */
   const NUMBER_VOICE_FILES = [2, 4, 6, 8, 10, 11, 12, 13, 14, 15, 16, 18, 21, 24, 25, 30, 35];
   const NUMBER_VOICES = {};
-  NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = mkAudio('audio/' + n + '.ogg'); });
+  NUMBER_VOICE_FILES.forEach(n => { NUMBER_VOICES[n] = mkAudio('audio/num/' + n + '.ogg'); });
 
   /* ── Speech channel ───────────────────────────────────────────────────────────────────
      Only ONE spoken clip may ever sound at a time. Two kinds of speech exist:
@@ -1636,7 +1649,7 @@
      The arrow art has the step baked in (arrow arc = +2, arrow arc 3 = +3, arrow arc 2 = +5).
      `wrongCount` resets on every correct pick, so this ladder restarts per slot. */
   const SW_TILE = 128, SW_GAP = 23, SW_PITCH = SW_TILE + SW_GAP, PANEL_W = 1573.948;
-  const HINT_ARROW_SRC = { 2: 'assets/arrow arc.webp', 3: 'assets/arrow arc 3.webp', 5: 'assets/arrow arc 2.webp' };
+  const HINT_ARROW_SRC = { 2: 'assets/arc/arrow arc.webp', 3: 'assets/arc/arrow arc 3.webp', 5: 'assets/arc/arrow arc 2.webp' };
   /* Spoken hint line, keyed by the level's step — it NAMES the number instead of the old
      generic "Follow the pattern!", so the voice says the same thing the arcs show.
      Keyed exactly like HINT_ARROW_SRC above, and covers every step the levels use
@@ -1959,13 +1972,13 @@
 
     /* ── Power button (top-right, separate from row) ── */
     const powerEl = document.getElementById('power-btn');
-    powerEl.src = assetURL(rowFull ? 'assets/Green button.webp' : 'assets/Red button.webp');
+    powerEl.src = assetURL(rowFull ? 'assets/img/Green button.webp' : 'assets/img/Red button.webp');
     powerEl.alt = rowFull ? 'ON' : 'OFF';
     powerEl.classList.toggle('pulsing', rowFull);   /* powers ON (green) when the row is full */
     /* current flows through the pipes the moment the pattern is completed */
     document.getElementById('screen-question').classList.toggle('current-on', rowFull);
     /* main panel border turns green on a correct, completed pattern (Figma success screen) */
-    document.getElementById('panel-frame').src = assetURL(rowFull ? 'assets/figma/panel-green.svg' : 'assets/figma/panel.svg');
+    document.getElementById('panel-frame').src = assetURL(rowFull ? 'assets/svg/panel-green.svg' : 'assets/svg/panel.svg');
 
     /* ── 8 switch slots ── */
     const stepMs    = SWITCH_STEP_MS;
@@ -2213,7 +2226,7 @@
     /* clear the previous level's completion state — everything else stays put */
     document.getElementById('screen-question').classList.remove('current-on', 'intro');
     document.getElementById('main-panel').classList.remove('opening');
-    document.getElementById('panel-frame').src = assetURL('assets/figma/panel.svg');
+    document.getElementById('panel-frame').src = assetURL('assets/svg/panel.svg');
     setByteDancing(false);
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
     tutorialGuideOn = false;        /* ...and stop marking the correct option: Levels 2-4 are
@@ -2460,7 +2473,7 @@
     v.onerror = () => {
       if (triedFile) return;
       triedFile = true;
-      v.src = 'assets/end-video.webm';
+      v.src = 'assets/video/end-video.webm';
       try { v.load(); v.currentTime = 0; } catch (e) {}
       const rp = v.play(); if (rp && rp.catch) rp.catch(() => {});
     };
@@ -2480,28 +2493,28 @@
 
   /* Real on-disk sizes (bytes), generated from the actual files — weights the bar + queue. */
   const ASSET_SIZES = {
-    "assets/arrow arc.webp": 770, "assets/arrow arc 2.webp": 858, "assets/arrow arc 3.webp": 928,
-    "assets/hint-yellow.svg": 1238, "assets/figma/textbox.svg": 2091, "assets/Green button.webp": 5726,
-    "audio/12.ogg": 6583, "assets/Red button.webp": 6820, "audio/8.ogg": 7555, "audio/11.ogg": 7996,
-    "audio/10.ogg": 8080, "audio/6.ogg": 8556, "audio/electricity.ogg": 8701, "audio/2.ogg": 8793,
-    "audio/13.ogg": 8990, "audio/15.ogg": 9044, "audio/30.ogg": 9173, "audio/4.ogg": 9267,
-    "assets/play button.svg": 9585, "audio/18.ogg": 9854, "audio/14.ogg": 10155, "audio/21.ogg": 10282,
-    "audio/16.ogg": 10430, "audio/25.ogg": 10839, "audio/24.ogg": 10912, "audio/35.ogg": 10918,
-    "assets/figma/options-box.svg": 11520, "assets/figma/panel.svg": 11530,
-    "assets/figma/panel-green.svg": 11531, "assets/figma/connector.webp": 14054,
-    "assets/background.webp": 16230,
-    "audio/Add 3 to continue the pattern.ogg": 17934,
-    "audio/Add 5 to continue the pattern.ogg": 17942,
-    "audio/Add 2 to continue the pattern.ogg": 18706,
-    "audio/Tap the correct switch.ogg": 20734,
-    "audio/Let us start fixing the switches.ogg": 26304, "audio/These switches are in a pattern.ogg": 29514,
-    "audio/Let us read the pattern together.ogg": 31143, "audio/We keep adding the same number!.ogg": 31596,
-    "audio/Good job! You fixed these switches.ogg": 33007, "audio/We are adding 2 at each step.ogg": 33516,
-    "audio/Well done! All the switches are fixed.ogg": 34092,
-    "audio/Wuhoo! The switches are fixed.ogg": 34340,
-    "audio/Tap the correct switch to continue the pattern.ogg": 36606, "assets/figma/robot.webp": 43190,
-    "audio/energy.ogg": 99680, "assets/figma/tile.webp": 126848, "assets/title screen.webp": 142274,
-    "assets/robot dance.webp": 254398, "assets/end-video.webm": 789182,
+    "assets/arc/arrow arc.webp": 770, "assets/arc/arrow arc 2.webp": 858, "assets/arc/arrow arc 3.webp": 928,
+    "assets/svg/hint-yellow.svg": 1238, "assets/svg/textbox.svg": 2091, "assets/img/Green button.webp": 5726,
+    "audio/num/12.ogg": 6583, "assets/img/Red button.webp": 6820, "audio/num/8.ogg": 7555, "audio/num/11.ogg": 7996,
+    "audio/num/10.ogg": 8080, "audio/num/6.ogg": 8556, "audio/sfx/electricity.ogg": 8701, "audio/num/2.ogg": 8793,
+    "audio/num/13.ogg": 8990, "audio/num/15.ogg": 9044, "audio/num/30.ogg": 9173, "audio/num/4.ogg": 9267,
+    "assets/svg/play button.svg": 9585, "audio/num/18.ogg": 9854, "audio/num/14.ogg": 10155, "audio/num/21.ogg": 10282,
+    "audio/num/16.ogg": 10430, "audio/num/25.ogg": 10839, "audio/num/24.ogg": 10912, "audio/num/35.ogg": 10918,
+    "assets/svg/options-box.svg": 11520, "assets/svg/panel.svg": 11530,
+    "assets/svg/panel-green.svg": 11531, "assets/img/connector.webp": 14054,
+    "assets/img/background.webp": 16230,
+    "audio/vo/Add 3 to continue the pattern.ogg": 17934,
+    "audio/vo/Add 5 to continue the pattern.ogg": 17942,
+    "audio/vo/Add 2 to continue the pattern.ogg": 18706,
+    "audio/vo/Tap the correct switch.ogg": 20734,
+    "audio/vo/Let us start fixing the switches.ogg": 26304, "audio/vo/These switches are in a pattern.ogg": 29514,
+    "audio/vo/Let us read the pattern together.ogg": 31143, "audio/vo/We keep adding the same number!.ogg": 31596,
+    "audio/vo/Good job! You fixed these switches.ogg": 33007, "audio/vo/We are adding 2 at each step.ogg": 33516,
+    "audio/vo/Well done! All the switches are fixed.ogg": 34092,
+    "audio/vo/Wuhoo! The switches are fixed.ogg": 34340,
+    "audio/vo/Tap the correct switch to continue the pattern.ogg": 36606, "assets/img/robot.webp": 43190,
+    "audio/sfx/energy.ogg": 99680, "assets/img/tile.webp": 126848, "assets/img/title screen.webp": 142274,
+    "assets/img/robot dance.webp": 254398, "assets/video/end-video.webm": 789182,
   };
   const MANIFEST = Object.keys(ASSET_SIZES);
 
@@ -2522,7 +2535,7 @@
     });
   }
   /* assets the stylesheet paints (not via [data-asset]) — fed to CSS through a custom property */
-  const _CSS_ASSET_VARS = { 'assets/background.webp': '--bg-img', 'assets/figma/tile.webp': '--tile-img' };
+  const _CSS_ASSET_VARS = { 'assets/img/background.webp': '--bg-img', 'assets/img/tile.webp': '--tile-img' };
 
   function _applyAsset(path) {
     const u = assetURL(path);
