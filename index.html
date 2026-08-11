@@ -1626,9 +1626,15 @@
   }
 
   /* ── Hint feature ──────────────────────────────────
-     After 2 wrong taps the bulb button glows ("armed"). Tapping it reveals the pattern
-     hint: "+N" hop arrows above the switches + the correct option glowing. The arrow art
-     already has the step baked in (arrow arc = +2, arrow arc 3 = +3, arrow arc 2 = +5). */
+     Help escalates with the number of wrong taps on the SAME slot, so a stuck player is
+     never left guessing forever:
+       1 wrong  → amber shake on the tapped tile only; try again.
+       2 wrongs → the bulb pops in ("armed"). Tapping it lays down the "+N" hop arrows and
+                  speaks the step (HINT_VOICE) — the PATTERN, still not the answer.
+       3 wrongs → the correct option itself glows (WRONGS_TO_REVEAL). Showing the pattern
+                  didn't land, so stop the guessing and point straight at the answer.
+     The arrow art has the step baked in (arrow arc = +2, arrow arc 3 = +3, arrow arc 2 = +5).
+     `wrongCount` resets on every correct pick, so this ladder restarts per slot. */
   const SW_TILE = 128, SW_GAP = 23, SW_PITCH = SW_TILE + SW_GAP, PANEL_W = 1573.948;
   const HINT_ARROW_SRC = { 2: 'assets/arrow arc.webp', 3: 'assets/arrow arc 3.webp', 5: 'assets/arrow arc 2.webp' };
   /* Spoken hint line, keyed by the level's step — it NAMES the number instead of the old
@@ -1641,6 +1647,7 @@
     3: 'Add 3 to continue the pattern.',
     5: 'Add 5 to continue the pattern.',
   };
+  const WRONGS_TO_REVEAL = 3;   /* misses on one slot before the correct option is marked */
   let hintArmed = false;
   let tutorialArrowsLocked = false;   /* keep the +2 arrows on screen through the Level-1 tutorial */
   /* Level 1 marks its one tappable option — but only from the "Tap the correct switch" step
@@ -2004,17 +2011,22 @@
     optArea.innerHTML = '';
     optArea.classList.remove('reveal', 'hidden-initially');
     cfg.options.forEach(opt => {
-      /* On Levels 2-4 options never glow — the bulb hint just shows the +N arrows, and the
-         player is meant to work the answer out. Level 1 is the exception (see `isGuide`). */
       const isWrongOption = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
       /* Level 1 is the guided tutorial: ONLY the correct switch responds. A wrong tap there
          would contradict the "+2 goes here" arc the bot just walked through, so the other
          three are inert (no handler at all → no click, no hover, no wrong feedback).
          Levels 2-4 are the real game and accept any tap. */
       const inert = isWrongOption || (currentRow === 0 && opt !== correct);
-      /* ...and that one live option is marked, so "only this tile works" is visible rather
-         than something the player has to discover by tapping dead tiles */
-      const isGuide = currentRow === 0 && tutorialGuideOn && !inert && opt === correct;
+      /* The correct option is marked in two situations — same cyan glow, both meaning
+         "this one":
+           • Level 1's tutorial, from the tap prompt on, where it's also the ONLY tile that
+             responds — without the mark that restriction is invisible and taps on the dead
+             tiles read as the game being broken.
+           • Any level, once the player has missed WRONGS_TO_REVEAL times on this slot. The
+             bulb hint after 2 wrongs showed the pattern; a 3rd miss means that didn't land.
+             All four tiles stay tappable here — the glow guides, it doesn't force. */
+      const isGuide = !inert && opt === correct &&
+                      ((currentRow === 0 && tutorialGuideOn) || wrongCount >= WRONGS_TO_REVEAL);
       const cls = isWrongOption ? 'wrong-option' : (inert ? 'inert' : 'option' + (isGuide ? ' guide' : ''));
       optArea.appendChild(makeSw(opt, cls, inert ? null : () => handleAnswer(opt)));
     });
