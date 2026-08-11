@@ -2033,6 +2033,48 @@
     resetIdle();   /* (re)start the inactivity countdown for this turn */
   }
 
+  /* ── Options panel (the bottom switch box) ─────────────────────────────────────────────
+     Three beats: the link pipes shoot down out of the main panel, the empty box slides out
+     after them, then the four tiles pop in together once it has landed. ~2s end to end.
+
+     Deploy is deliberately decoupled from the level entrance, because Level 1 holds it back:
+     while the bot teaches the pattern there is nothing below the panel at all, so the only
+     thing on screen is the thing being explained. It slides in on the tap prompt instead
+     (see the tutorial queue in handleLevelStart), landing ~2s before the child can tap. */
+  const OPT_DEPLOY_MS = 560 + 1400;   /* pipes → box; the tiles land at the end of this */
+
+  /* tuck the whole panel away — the pre-deploy state */
+  function hideOptions() {
+    const optArea = document.getElementById('options-area');
+    const optBox  = document.getElementById('options-box');
+    optBox.classList.remove('deploy', 'retract');  optBox.classList.add('hidden-initially');
+    optArea.classList.remove('reveal');            optArea.classList.add('hidden-initially');
+    document.querySelectorAll('.opt-pipe').forEach(p => {
+      p.classList.remove('extend', 'retract'); p.classList.add('hidden-initially');
+    });
+  }
+
+  /* run the deploy; `onTiles` fires as the tiles land (i.e. when the panel becomes usable) */
+  function deployOptions(onTiles) {
+    const optArea = document.getElementById('options-area');
+    const optBox  = document.getElementById('options-box');
+    const pipes   = document.querySelectorAll('.opt-pipe');
+    /* 1 — pipes shoot down out of the panel */
+    pipes.forEach(p => { p.classList.remove('hidden-initially'); void p.offsetWidth; p.classList.add('extend'); });
+    /* 2 — the (empty) option box deploys out of the panel, with the whoosh */
+    setTimeout(() => {
+      sfxDeploy();
+      optBox.classList.remove('hidden-initially'); void optBox.offsetWidth; optBox.classList.add('deploy');
+    }, 560);
+    /* 3 — once the box is in place, the option switches pop in together */
+    setTimeout(() => {
+      optArea.classList.remove('hidden-initially'); void optArea.offsetWidth; optArea.classList.add('reveal');
+      sfxPop(700);   /* single pop — all four options appear together */
+      setTimeout(() => optArea.classList.remove('reveal'), 1400);
+      if (onTiles) onTiles();
+    }, OPT_DEPLOY_MS);
+  }
+
   /* ── Game flow ─────────────────────────────────── */
 
   function handleStart() {
@@ -2087,92 +2129,72 @@
     panelEl.classList.add('opening');
     setTimeout(sfxPanelOpen, 1000);
 
-    /* keep the whole options box + its link pipes tucked away until every
-       switch has appeared — then deploy them out of the main panel */
-    const optArea = document.getElementById('options-area');
-    const optBox  = document.getElementById('options-box');
-    const pipes   = document.querySelectorAll('.opt-pipe');
-    optBox.classList.remove('deploy', 'retract');  optBox.classList.add('hidden-initially');
-    optArea.classList.remove('reveal'); optArea.classList.add('hidden-initially');
-    pipes.forEach(p => { p.classList.remove('extend', 'retract'); p.classList.add('hidden-initially'); });
+    /* The options panel stays tucked away for the WHOLE lesson — the tutorial deploys it
+       itself, on the tap prompt (see the queue below). Nothing below the main panel competes
+       with the pattern while the bot is explaining it. */
+    hideOptions();
 
     const unlockDelay = SWITCH_OFFSET_MS + (TOTAL - 1) * SWITCH_STEP_MS + 700;
     setTimeout(() => {
-      /* 1 — pipes shoot down out of the panel */
-      pipes.forEach(p => {
-        p.classList.remove('hidden-initially');
-        void p.offsetWidth;
-        p.classList.add('extend');
-      });
-      /* 2 — the (empty) option box deploys out of the panel, with the whoosh */
-      setTimeout(() => {
-        sfxDeploy();
-        optBox.classList.remove('hidden-initially');
-        void optBox.offsetWidth;
-        optBox.classList.add('deploy');
-      }, 560);
-      /* 3 — once the box is in place, the option switches pop in one by one */
-      setTimeout(() => {
-        optArea.classList.remove('hidden-initially');
-        void optArea.offsetWidth;
-        optArea.classList.add('reveal');
-        sfxPop(700);   /* single pop — all four options appear together */
-        setTimeout(() => optArea.classList.remove('reveal'), 1400);
-        /* Lock them NOW, not when the narration starts ~1.2s later: otherwise a fast player
-           could solve the whole row in that gap and then sit through the tutorial afterwards.
-           The dialogue queue unlocks them once the tutorial has finished speaking. */
-        _setOptionsLock(true);
+      /* Belt-and-braces: `hidden-initially` already sets pointer-events:none, and the dialogue
+         queue locks the area for every line it speaks. */
+      _setOptionsLock(true);
 
-        /* 4 — finally the text box slides in, THEN the bot speaks */
-        setTimeout(() => {
-          botBar.classList.remove('bar-hidden');
-          void botBar.offsetWidth;
-          botBar.classList.add('bar-reveal');
-          /* NOTE: the hint bulb stays hidden during Level 1 (the tutorial); it first appears
-             on Level 2 when the real game starts (see loadLevelInPlace) */
-          sfxBarOpen();
-          /* ── Level 1 is the guided tutorial (this entrance only ever runs for Level 1 —
-                Levels 2-4 come through loadLevelInPlace) ── */
-          setTimeout(() => {
-            queueBotText('Let us start fixing the switches.');
-            queueBotText('These switches are in a pattern.');
-            queueBotText('Let us read the pattern together.');
-            /* read the prefilled numbers aloud (2, 4, 6, 8, 10), highlighting each */
-            queueAction((done) => readPattern(ROWS_CONFIG[0], done));
-            queueBotText('We are adding 2 at each step.');
-            /* show the +2 hop arrows one by one — the 4 over the read pattern PLUS the arc
-               that hops into the first blank slot (arc 4), so the blank arc reveals as part of
-               the same animated sequence instead of popping in on its own at the prompt */
-            queueAction((done) => {
-              buildHintArrows(ROWS_CONFIG[0]);
-              document.getElementById('hint-arrows').classList.remove('hidden');
-              tutorialArrowsLocked = true;   /* keep the arrows up for the rest of Level 1 */
-              revealArrowsSeq(0, 4, 620, done);
-            });
-            /* Light ALL FIVE arcs together — including the one hopping into the first blank.
-               Leaving that one out made it look like it was lagging behind the other four.
-               `done()` is synchronous here, so this fires as the NEXT line starts speaking:
-               glow + pump come up exactly on the word, not a beat late. */
-            queueAction((done) => { glowArrows(0, 4); pulseArrows(0, 4, true); done(); });
-            /* The pump is scoped to THIS clip and stops when it ends — the arcs are loudest
-               precisely while the bot names the idea, then hand attention to the switches. */
-            queueBotText('We keep adding the same number!', null, () => pulseArrows(0, 4, false));
-            queueBotText('Tap the correct switch to continue the pattern.');
-            /* The blank arc is already on screen — `showBlankArc` just moves the glow onto it
-               (clearing the pattern-arc glows) so it becomes the single guide; no pop.
-               The matching option lights up on the same beat: the arc says WHERE the answer
-               goes, the glowing tile says WHICH one to tap — and it's the only one that
-               responds anyway (see renderQuestion). Both wait until the prompt so nothing
-               invites a tap while the narration still has the options locked. */
-            queueAction((done) => {
-              showBlankArc();
-              tutorialGuideOn = true;
-              showTutorialOptionGuide();
-              done();
-            });
-          }, 450);
-        }, 750);
-      }, 560 + 1400);   /* after the box-deploy animation (1.4s) finishes */
+      /* the text box slides in, THEN the bot speaks. This used to wait out the ~2s options
+         deploy first; with the deploy moved to the prompt, the lesson starts right after the
+         last switch lands instead of after a dead pause. */
+      botBar.classList.remove('bar-hidden');
+      void botBar.offsetWidth;
+      botBar.classList.add('bar-reveal');
+      /* NOTE: the hint bulb stays hidden during Level 1 (the tutorial); it first appears
+         on Level 2 when the real game starts (see loadLevelInPlace) */
+      sfxBarOpen();
+      /* ── Level 1 is the guided tutorial (this entrance only ever runs for Level 1 —
+            Levels 2-4 come through loadLevelInPlace) ── */
+      setTimeout(() => {
+        queueBotText('Let us start fixing the switches.');
+        queueBotText('These switches are in a pattern.');
+        queueBotText('Let us read the pattern together.');
+        /* read the prefilled numbers aloud (2, 4, 6, 8, 10), highlighting each */
+        queueAction((done) => readPattern(ROWS_CONFIG[0], done));
+        queueBotText('We are adding 2 at each step.');
+        /* show the +2 hop arrows one by one — the 4 over the read pattern PLUS the arc
+           that hops into the first blank slot (arc 4), so the blank arc reveals as part of
+           the same animated sequence instead of popping in on its own at the prompt */
+        queueAction((done) => {
+          buildHintArrows(ROWS_CONFIG[0]);
+          document.getElementById('hint-arrows').classList.remove('hidden');
+          tutorialArrowsLocked = true;   /* keep the arrows up for the rest of Level 1 */
+          revealArrowsSeq(0, 4, 620, done);
+        });
+        /* Light ALL FIVE arcs together — including the one hopping into the first blank.
+           Leaving that one out made it look like it was lagging behind the other four.
+           `done()` is synchronous here, so this fires as the NEXT line starts speaking:
+           glow + pump come up exactly on the word, not a beat late. */
+        queueAction((done) => { glowArrows(0, 4); pulseArrows(0, 4, true); done(); });
+        /* The pump is scoped to THIS clip and stops when it ends — the arcs are loudest
+           precisely while the bot names the idea, then hand attention to the switches. */
+        queueBotText('We keep adding the same number!', null, () => pulseArrows(0, 4, false));
+        /* THE PANEL ARRIVES HERE — the lesson is over and the child is being asked to act.
+           `done()` is synchronous, so the deploy starts on the first word of the prompt
+           below: pipes and box take OPT_DEPLOY_MS (~2s), which lands the tiles roughly
+           2s before the queue unlocks them at the end of the line. Deploying any earlier
+           puts a second thing on screen while the pattern is still being explained. */
+        queueAction((done) => { deployOptions(); done(); });
+        queueBotText('Tap the correct switch to continue the pattern.');
+        /* The blank arc is already on screen — `showBlankArc` just moves the glow onto it
+           (clearing the pattern-arc glows) so it becomes the single guide; no pop.
+           The matching option lights up on the same beat: the arc says WHERE the answer
+           goes, the glowing tile says WHICH one to tap — and it's the only one that
+           responds anyway (see renderQuestion). Both wait until the prompt so nothing
+           invites a tap while the narration still has the options locked. */
+        queueAction((done) => {
+          showBlankArc();
+          tutorialGuideOn = true;
+          showTutorialOptionGuide();
+          done();
+        });
+      }, 450);
     }, unlockDelay);
   }
 
@@ -2204,28 +2226,15 @@
     /* the new level's switches just appear (chrome already in place — no cascade) */
     firstRender = false; renderQuestion();
 
-    /* hide the option box + pipes, then deploy ONLY them with animation */
-    const optArea = document.getElementById('options-area');
-    const optBox  = document.getElementById('options-box');
-    const pipes   = document.querySelectorAll('.opt-pipe');
-    optBox.classList.remove('deploy', 'retract'); optBox.classList.add('hidden-initially');
-    optArea.classList.remove('reveal'); optArea.classList.add('hidden-initially');
-    pipes.forEach(p => { p.classList.remove('extend', 'retract'); p.classList.add('hidden-initially'); });
-
+    /* hide the option box + pipes, then deploy ONLY them with animation. Levels 2-4 are the
+       real game, so the panel comes straight in — there's no lesson to keep the screen clear
+       for (contrast the Level 1 tutorial, which withholds it until the tap prompt). */
+    hideOptions();
     setTimeout(() => {
-      pipes.forEach(p => { p.classList.remove('hidden-initially'); void p.offsetWidth; p.classList.add('extend'); });
-      setTimeout(() => {
-        sfxDeploy();
-        optBox.classList.remove('hidden-initially'); void optBox.offsetWidth; optBox.classList.add('deploy');
-      }, 560);
-      setTimeout(() => {
-        optArea.classList.remove('hidden-initially'); void optArea.offsetWidth; optArea.classList.add('reveal');
-        sfxPop(700);
-        /* SPEAK: prompt now that the options are tappable (the text is already shown).
-           Goes through the speech channel so an immediate tap cuts it instead of doubling up. */
-        speakNow(VOICE['Tap the correct switch.']);
-        setTimeout(() => optArea.classList.remove('reveal'), 1400);
-      }, 560 + 1400);
+      /* SPEAK the prompt as the tiles land, i.e. once they're actually tappable (the text is
+         already shown). Goes through the speech channel so an immediate tap cuts it instead
+         of doubling up. */
+      deployOptions(() => speakNow(VOICE['Tap the correct switch.']));
     }, 1150);   /* wait for the blast doors to open before deploying the options */
   }
 
