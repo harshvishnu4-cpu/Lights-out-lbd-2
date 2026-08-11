@@ -443,6 +443,25 @@
     }
     .sw.option:hover { transform: scale(1.08); }
 
+    /* GUIDE — Level 1 only: mark the ONE option that actually responds. The other three are
+       inert there (see renderQuestion), and with nothing marked the player has no way to tell
+       which tile will react, so taps land on dead tiles and read as the game being broken.
+       Cyan to match the hop arcs (the same "+2 goes here" thought), and a slow 1.25s breathe
+       — calmer than the arcs' 0.8s pump, which has already finished by the time this appears,
+       so the two are never loud at once.
+       The glow lives on .tile so .sw's transform stays free for the :hover scale above. */
+    @keyframes guideGlowPulse {
+      0%, 100% { box-shadow: 0 0 10px 2px rgba(12,228,249,.5);
+                 outline-color: rgba(163,255,252,.7); }
+      50%      { box-shadow: 0 0 22px 7px rgba(12,228,249,.95), 0 0 44px 16px rgba(12,228,249,.32);
+                 outline-color: #a3fffc; }
+    }
+    .sw.option.guide .tile {
+      outline: 3px solid #a3fffc;
+      border-radius: 8px;
+      animation: guideGlowPulse 1.25s ease-in-out infinite;
+    }
+
     /* ── Hint button (yellow bulb, right end of the bot bar) — art from assets/hint-yellow.svg ── */
     #hint-btn {
       position: absolute;
@@ -1624,6 +1643,9 @@
   };
   let hintArmed = false;
   let tutorialArrowsLocked = false;   /* keep the +2 arrows on screen through the Level-1 tutorial */
+  /* Level 1 marks its one tappable option — but only from the "Tap the correct switch" step
+     onward, so the glow can't invite a tap while the narration still has the options locked. */
+  let tutorialGuideOn = false;
 
   /* panel-relative x-centre of switch i, matching the centred flex row in CSS */
   function switchCenterX(i, count) {
@@ -1706,6 +1728,20 @@
     if (filled >= up.length) return;      /* row complete — no blank left */
     const a = arrows[up[filled] - 1];     /* arc hopping into the current blank slot */
     if (a) a.classList.add('show', 'glow');   /* glow it so it clearly guides the next blank */
+  }
+
+  /* Level-1 tutorial: light the one option that responds. renderQuestion applies `guide` on
+     every later render (each correct tap rebuilds the options), so this is only needed for the
+     FIRST one — the options are already on screen by the time the tap prompt is spoken, and
+     re-rendering mid-tutorial would restart the switch-row animations. */
+  function showTutorialOptionGuide() {
+    if (currentRow !== 0 || !tutorialGuideOn) return;
+    const cfg     = ROWS_CONFIG[0];
+    const correct = getCorrect(cfg, grid[0].length);
+    const els     = document.querySelectorAll('#options-area .sw');
+    els.forEach(el => el.classList.remove('guide'));
+    const i = cfg.options.indexOf(correct);   /* option elements are built in cfg.options order */
+    if (i >= 0 && els[i]) els[i].classList.add('guide');
   }
 
 
@@ -1968,15 +2004,18 @@
     optArea.innerHTML = '';
     optArea.classList.remove('reveal', 'hidden-initially');
     cfg.options.forEach(opt => {
-      /* options never glow — the tutorial guides with the glowing +2 arc into the blank slot
-         instead, and the bulb hint just shows the +2 arrows */
+      /* On Levels 2-4 options never glow — the bulb hint just shows the +N arrows, and the
+         player is meant to work the answer out. Level 1 is the exception (see `isGuide`). */
       const isWrongOption = (phase === 'wrong' || phase === 'wrong-second') && opt === wrongAnswer;
       /* Level 1 is the guided tutorial: ONLY the correct switch responds. A wrong tap there
          would contradict the "+2 goes here" arc the bot just walked through, so the other
          three are inert (no handler at all → no click, no hover, no wrong feedback).
          Levels 2-4 are the real game and accept any tap. */
       const inert = isWrongOption || (currentRow === 0 && opt !== correct);
-      const cls = isWrongOption ? 'wrong-option' : (inert ? 'inert' : 'option');
+      /* ...and that one live option is marked, so "only this tile works" is visible rather
+         than something the player has to discover by tapping dead tiles */
+      const isGuide = currentRow === 0 && tutorialGuideOn && !inert && opt === correct;
+      const cls = isWrongOption ? 'wrong-option' : (inert ? 'inert' : 'option' + (isGuide ? ' guide' : ''));
       optArea.appendChild(makeSw(opt, cls, inert ? null : () => handleAnswer(opt)));
     });
     resetIdle();   /* (re)start the inactivity countdown for this turn */
@@ -2016,6 +2055,7 @@
     /* reset the top-left character to the idle static robot */
     setByteDancing(false);
     tutorialArrowsLocked = false;   /* fresh entrance — allow the reset to clear old arrows */
+    tutorialGuideOn = false;        /* the option guide lights up only at the tap prompt below */
     resetHint();   /* bulb dim, no hop arrows at the start of the level */
     document.getElementById('hint-btn').classList.add('hb-hidden');   /* reveal it with the bot bar */
 
@@ -2106,9 +2146,18 @@
                precisely while the bot names the idea, then hand attention to the switches. */
             queueBotText('We keep adding the same number!', null, () => pulseArrows(0, 4, false));
             queueBotText('Tap the correct switch to continue the pattern.');
-            /* the blank arc is already on screen — `showBlankArc` just moves the glow onto it
-               (clearing the pattern-arc glows) so it becomes the single pulsing guide; no pop */
-            queueAction((done) => { showBlankArc(); done(); });
+            /* The blank arc is already on screen — `showBlankArc` just moves the glow onto it
+               (clearing the pattern-arc glows) so it becomes the single guide; no pop.
+               The matching option lights up on the same beat: the arc says WHERE the answer
+               goes, the glowing tile says WHICH one to tap — and it's the only one that
+               responds anyway (see renderQuestion). Both wait until the prompt so nothing
+               invites a tap while the narration still has the options locked. */
+            queueAction((done) => {
+              showBlankArc();
+              tutorialGuideOn = true;
+              showTutorialOptionGuide();
+              done();
+            });
           }, 450);
         }, 750);
       }, 560 + 1400);   /* after the box-deploy animation (1.4s) finishes */
@@ -2133,6 +2182,9 @@
     document.getElementById('panel-frame').src = assetURL('assets/figma/panel.svg');
     setByteDancing(false);
     tutorialArrowsLocked = false;   /* leaving the tutorial level — clear its arrows */
+    tutorialGuideOn = false;        /* ...and stop marking the correct option: Levels 2-4 are
+                                      the real game, where the player works the answer out.
+                                      Must be cleared BEFORE renderQuestion below. */
     resetHint();   /* clear the previous level; the bulb stays HIDDEN now and only pops in
                       (with its appearance animation) after the player gets 2 wrongs on a slot */
     document.getElementById('bot-bar').classList.remove('bar-hidden');   /* the text bar stays */
