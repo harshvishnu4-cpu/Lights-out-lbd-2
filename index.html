@@ -683,8 +683,13 @@
     /* ════════════════════════════════════════════
        LEVEL TRANSITION — sci-fi blast doors
     ════════════════════════════════════════════ */
+    /* FIXED to the viewport, not absolute inside #canvas. The doors must cover everything the
+       player can see, including the letterbox bars beside/above a non-16:9 window — if they
+       only covered the scaled design box, a screen swap could flash into view around their
+       edges whenever the canvas and the window disagree. Fixed positioning also makes the
+       cover immune to the canvas scale entirely. */
     #transition {
-      position: absolute; inset: 0;
+      position: fixed; inset: 0;
       z-index: 60; pointer-events: none;
       overflow: hidden;
     }
@@ -847,14 +852,17 @@
   <!-- ── Confetti burst (energy shards / sparks on pattern complete) ── -->
   <canvas id="fx-confetti"></canvas>
 
-  <!-- ── LEVEL TRANSITION (sci-fi blast doors) ─── -->
-  <div id="transition" class="hidden">
-    <div class="trans-half trans-top"></div>
-    <div class="trans-half trans-bottom"></div>
-    <div class="trans-flash"></div>
-  </div>
 
 </div><!-- #canvas -->
+
+<!-- ── LEVEL TRANSITION (sci-fi blast doors) ───────────────────────────────────────────────
+     OUTSIDE #canvas on purpose: it is position:fixed and must cover the whole viewport,
+     letterbox bars included, so a screen swap can never show around its edges. -->
+<div id="transition" class="hidden">
+  <div class="trans-half trans-top"></div>
+  <div class="trans-half trans-bottom"></div>
+  <div class="trans-flash"></div>
+</div>
 
 <!-- ── Rotate-to-landscape hint (narrow portrait phones) ── -->
 <div id="rotate-hint">
@@ -1569,18 +1577,34 @@
     [sndElectricity, sndEnergy].forEach(s => { try { s.pause(); s.currentTime = 0; } catch (e) {} });
   }
 
-  /* ── Scale canvas to fit any viewport (letterboxed, aspect-preserved) ── */
+  /* ── Scale canvas to fit any viewport (letterboxed, aspect-preserved) ──
+     Fit to the LAYOUT viewport (documentElement.clientWidth/Height), clamped by
+     `visualViewport` only when that is SMALLER.
+
+     Why not visualViewport alone: it describes the *visual* box — it shrinks under pinch-zoom
+     and on-screen keyboards, and inside an embedded preview pane / webview it can report a box
+     LARGER than the page's layout viewport. Scaling to a box bigger than the window makes the
+     canvas overflow: the game gets cropped at the edges (reads as "the game is zoomed"), the
+     document grows scrollbars, and — because #transition lives inside #canvas — the blast
+     doors stop covering the screen, so a level swap flashes into view around them.
+     Taking the smaller of the two boxes can never overflow. clientWidth also excludes the
+     scrollbar, which stops a scrollbar appearing → viewport shrinking → re-fit feedback loop. */
   function scaleCanvas() {
     const el = document.getElementById('canvas');
     if (!el) return;
-    const vp = window.visualViewport;
-    const vw = (vp && vp.width)  || window.innerWidth  || document.documentElement.clientWidth;
-    const vh = (vp && vp.height) || window.innerHeight || document.documentElement.clientHeight;
+    const de = document.documentElement;
+    const vv = window.visualViewport;
+    let vw = de.clientWidth  || window.innerWidth;
+    let vh = de.clientHeight || window.innerHeight;
+    if (vv && vv.width  > 0) vw = Math.min(vw, vv.width);
+    if (vv && vv.height > 0) vh = Math.min(vh, vv.height);
+    if (!vw || !vh) return;          /* nothing measurable yet — a later pass will catch it */
     const s  = Math.min(vw / 1920, vh / 1080);
     /* centre the scaled canvas with an explicit translate (letterbox offsets) */
     const tx = Math.round((vw - 1920 * s) / 2);
     const ty = Math.round((vh - 1080 * s) / 2);
-    el.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+    const t  = `translate(${tx}px, ${ty}px) scale(${s})`;
+    if (el.style.transform !== t) el.style.transform = t;   /* skip no-op style writes */
   }
   let _scaleRAF = null;
   function requestScale() {
@@ -1589,11 +1613,70 @@
   }
   window.addEventListener('resize', requestScale);
   window.addEventListener('orientationchange', requestScale);
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', requestScale);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', requestScale);
+    window.visualViewport.addEventListener('scroll', requestScale);
+  }
+  /* A `resize` event is NOT guaranteed for every box change: an embedded preview pane being
+     dragged, a DPI change from moving the window to another monitor, or mobile browser chrome
+     collapsing can all resize the layout viewport without one — leaving the canvas stuck at a
+     scale computed for the old size, which is the "zoomed" bug above. ResizeObserver watches
+     the box itself, so it fires for all of those. */
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(requestScale).observe(document.documentElement); } catch (e) {}
+  }
   scaleCanvas();
-  /* a couple of follow-up passes catch mobile address-bar / late layout shifts */
+  /* follow-up passes catch late layout shifts (web fonts, mobile address bar) even where
+     ResizeObserver is missing */
   window.addEventListener('load', scaleCanvas);
   setTimeout(scaleCanvas, 300);
+  setTimeout(scaleCanvas, 1200);
+
+  /* ── Zoom lock ────────────────────────────────────────────────────────────────────────
+     The canvas already letterboxes itself to any viewport, so zooming gains the player
+     nothing and only costs sharpness — and a stray pinch mid-question is pure frustration
+     for a child. The <meta viewport> tags (user-scalable=no, maximum-scale=1) only bind
+     mobile browsers, and iOS has ignored them since iOS 10, so the gestures are blocked
+     here instead:
+       • ctrl/⌘ + wheel   — desktop zoom, and what a trackpad pinch is reported as
+       • ctrl/⌘ + = - 0   — the keyboard zoom shortcuts
+       • gesture* events  — Safari's native pinch
+       • 2-finger touch   — pinch on any touchscreen
+     All must be registered with { passive: false } or preventDefault is ignored.
+
+     Not blockable from a page (browser-level, by design): the ⋮ menu's zoom control,
+     full-page OS/system magnifiers, and browser-level zoom already applied before load.
+     Those stay safe anyway — scaleCanvas re-fits, so the game just re-letterboxes rather
+     than overflowing. */
+  function _blockZoom(e) { e.preventDefault(); e.stopPropagation(); }
+
+  window.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) _blockZoom(e);
+  }, { passive: false });
+
+  window.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    /* '+' and '-' arrive with several key names depending on layout / numpad */
+    if (['+', '=', '-', '_', '0'].indexOf(e.key) !== -1 ||
+        ['NumpadAdd', 'NumpadSubtract', 'Equal', 'Minus', 'Digit0', 'Numpad0'].indexOf(e.code) !== -1) {
+      _blockZoom(e);
+    }
+  }, { passive: false });
+
+  /* Safari pinch */
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(t =>
+    window.addEventListener(t, _blockZoom, { passive: false }));
+
+  /* touchscreen pinch — a second finger can only be a zoom here; the game is all single taps */
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) _blockZoom(e);
+  }, { passive: false });
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) _blockZoom(e);
+  }, { passive: false });
+
+  /* double-tap / double-click zoom (body's touch-action already covers most cases) */
+  window.addEventListener('dblclick', _blockZoom, { passive: false });
 
   /* ── Game config ───────────────────────────────── */
   /* Each level is an 8-slot skip-counting sequence. `prefilled` lists the slot indices
@@ -1874,20 +1957,43 @@
     if (bd) bd.classList.toggle('show', on);
   }
 
-  /* Blast-door transition: doors slide shut, swap the screen behind them, slide open */
+  /* Blast-door transition: doors slide shut, swap the screen behind them, slide open.
+     Must match the `transition: transform` duration on .trans-half in CSS. */
+  const DOOR_MS = 650;
   function playTransition(swap) {
     stopCurrentFlow();                               /* cut the long energy-surge clip before leaving */
     const t = document.getElementById('transition');
+    const top = t.querySelector('.trans-top');
     t.classList.remove('hidden', 'closed');
     void t.offsetWidth;
     t.classList.add('closed');                       /* doors slide shut */
     sfxPowerDown();
-    setTimeout(() => { if (swap) swap(); }, 700);    /* swap the screen while covered */
-    setTimeout(() => {
-      t.classList.remove('closed');                  /* doors slide open on the new screen */
-      sfxPowerUp();
-      setTimeout(() => t.classList.add('hidden'), 700);
-    }, 1050);
+
+    /* Swap only once the doors have ACTUALLY shut. Closing is a CSS transition, so under load
+       (asset decode, the incoming screen's entrance) it can finish later than its nominal
+       650ms — and the old code swapped on a flat 700ms timer, a 50ms margin. Miss it and the
+       screen changes while a gap is still open, which is exactly the "glitch" you see.
+       `transitionend` is authoritative; the timer is only a fallback for when it never fires
+       (prefers-reduced-motion, a backgrounded tab, display:none). */
+    let swapped = false;
+    const doSwap = () => {
+      if (swapped) return;
+      swapped = true;
+      top.removeEventListener('transitionend', onEnd);
+      clearTimeout(fallback);
+      if (swap) swap();
+      /* hold the shut doors a beat on the new screen, then open them */
+      setTimeout(() => {
+        t.classList.remove('closed');                /* doors slide open on the new screen */
+        sfxPowerUp();
+        setTimeout(() => t.classList.add('hidden'), DOOR_MS + 50);
+      }, 350);
+    };
+    const onEnd = (e) => {
+      if (e.target === top && e.propertyName === 'transform') doSwap();
+    };
+    top.addEventListener('transitionend', onEnd);
+    const fallback = setTimeout(doSwap, DOOR_MS + 250);
   }
 
   /* ── DOM builder ───────────────────────────────── */
